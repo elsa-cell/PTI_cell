@@ -27,7 +27,7 @@ def build_backbone(cfg, input_shape=None):
     if input_shape is None:
          if cfg.DATALOADER.IS_STACK:
             input_shape = ShapeSpec(stack_size=cfg.INPUT.STACK_SIZE, channels=len(cfg.MODEL.PIXEL_MEAN))
-        else:
+         else:
             input_shape = ShapeSpec(channels=len(cfg.MODEL.PIXEL_MEAN))
 
     backbone_name = cfg.MODEL.BACKBONE.NAME
