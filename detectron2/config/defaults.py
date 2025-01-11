@@ -126,7 +126,7 @@ _C.DATALOADER.REPEAT_THRESHOLD = 0.0
 _C.DATALOADER.FILTER_EMPTY_ANNOTATIONS = True
 
 # STACK
-_C.DATALOADER.IS_STACK = True
+_C.DATALOADER.IS_STACK = False
 
 # ---------------------------------------------------------------------------- #
 # Backbone options
