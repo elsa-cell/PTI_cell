@@ -4,6 +4,7 @@ import os
 import random
 import json
 from detectron2.structures import BoxMode
+from .. import DatasetCatalog, MetadataCatalog
 
 
 
@@ -54,7 +55,7 @@ def get_dicts(dir, mode, idx_cross_val, classes):
             if 0 => train contains folds 2,3,4 ; val contains fold 1 ; test contains fold 0
             if 1 => train contains folds 3,4,0 ; val contains fold 2 ; test contains fold 1
             and so on...
-        classes (list): classes correspondance to the labels
+        classes (list): classes correspondance to the labels, of the format classes = {'class_name':class_id, 'class_name':class_id}, with class_name (str) and class_id (int)
         
 
     Returns:
@@ -85,15 +86,17 @@ def get_dicts(dir, mode, idx_cross_val, classes):
         folds_list = cross_val_dict[idx_cross_val]
 
     dataset_dicts = []
+    # dict_instance_label : Does the contiguous range for the dataset format that is wanted by detectron2
     dict_instance_label = {value:num for num, value in enumerate(classes.values())}
     for fold in folds_list:
         img_dir = os.path.join(dir, 'Cross-val', 'Xval'+str(fold), 'images')
         ann_dir = os.path.join(dir, 'Cross-val', 'Xval'+str(fold),'labels')
-        
+
+        # TODO faire des logger error
         if not os.path.exists(img_dir):
-            print(f"The path {img_dir} does not exist.")
+            logger.error("The path {} does not exist.".format(img_dir))
         if not os.path.exists(ann_dir):
-            print(f"The path {ann_dir} does not exist.")
+            logger.error("The path {} does not exist.".format(ann_dir))
 
         for idx, file in tqdm(enumerate(os.listdir(ann_dir)), desc=f'cross validation {fold}, mode {mode}'):
             # annotations should be provided in yolo format
@@ -127,5 +130,11 @@ def get_dicts(dir, mode, idx_cross_val, classes):
             record["annotations"] = objs
             dataset_dicts.append(record)
 
+    # In this if, we set the name of the different classes in the MetadataCatalog
+    if mode is not None:
+        metadata = MetadataCatalog.get(mode)
+        thing_classes = [class_name for idx_in_dict, class_name in enumerate(classes.keys())]
+        metadata.thing_classes = thing_classes
+    
 
     return dataset_dicts
