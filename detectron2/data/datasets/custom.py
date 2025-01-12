@@ -27,10 +27,10 @@ __all__ = ["get_dicts"]
 # inspired from official Detectron2 tutorial notebook https://colab.research.google.com/drive/16jcaJoc6bCFAQ96jDe2HwtXj7BMD_-m5
 # /!\ ATTENTION !! LE SYSTEME DE FICHIER A ETE CHANGE, LA DOCUMENTATION AUSSI A ETE MDIFIEE POUR COLLER AUX ARGUMENTS REELS DE LA FONCTION
 
-def get_dicts(dir, mode, idx_cross_val, classes):
+def get_dicts(dir, mode, idx_cross_val, classes, dataset_name=None):
     """
-    Read the annotations for the dataset in YOLO format and create a list of dictionaries containing information for each
-    image.
+    Read the annotations for the custom dataset and create a list of dictionaries containing information for each image. There must be one JSON file per image, formatted in YOLO format, with the same file_name (except for the extension)
+    Also put the name of the associated classe into the metadata associated with this dataset.
 
     Args:
         dir (str) : Path to the directory containing the data, structured as follows:
@@ -50,12 +50,13 @@ def get_dicts(dir, mode, idx_cross_val, classes):
                     |___ Xval4
                             |__ images
                             |__ labels
-        mode (str): 'train' : for training data, 'val' : for evaluation data, '' : for testing data
+        mode (str): 'train' : for training data, 'val' : for evaluation data, 'test' : for testing data (or any str for testing, just has not to be '')
         idx_cross_val (int): 0 to 4, 
             if 0 => train contains folds 2,3,4 ; val contains fold 1 ; test contains fold 0
             if 1 => train contains folds 3,4,0 ; val contains fold 2 ; test contains fold 1
             and so on...
         classes (list): classes correspondance to the labels, of the format classes = {'class_name':class_id, 'class_name':class_id}, with class_name (str) and class_id (int)
+        dataset_name (str, default:None): name of the dataset, to register properly the metadata. Metadata won't be registered if set to None (default).
         
 
     Returns:
@@ -131,8 +132,8 @@ def get_dicts(dir, mode, idx_cross_val, classes):
             dataset_dicts.append(record)
 
     # In this if, we set the name of the different classes in the MetadataCatalog
-    if mode is not None:
-        metadata = MetadataCatalog.get(mode)
+    if dataset_name is not None:
+        metadata = MetadataCatalog.get(dataset_name)
         thing_classes = [class_name for idx_in_dict, class_name in enumerate(classes.keys())]
         metadata.thing_classes = thing_classes
     
