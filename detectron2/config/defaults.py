@@ -86,7 +86,7 @@ _C.INPUT.MASK_FORMAT = "polygon"  # alternative: "bitmask"
 # STACK
 _C.INPUT.STACK_SIZE = 11
 _C.INPUT.EXTENSION = ".png"
-_C.INPUT.STACK_SEPERATOR = "F"
+_C.INPUT.STACK_SEPARATOR = "F"
 
 # -----------------------------------------------------------------------------
 # Dataset
@@ -158,10 +158,10 @@ _C.MODEL.FPN.FUSE_TYPE = "sum"
 
 
 # ---------------------------------------------------------------------------- #
-# Seperator options
+# Separator options
 # ---------------------------------------------------------------------------- #
-_C.MODEL.SEPERATOR = CN()
-_C.MODEL.SEPERATOR.NAME = "SharedConvSeperator"
+_C.MODEL.SEPARATOR = CN()
+_C.MODEL.SEPARATOR.NAME = "SharedConvSeparator"
 
 # ---------------------------------------------------------------------------- #
 # Proposal generator options
