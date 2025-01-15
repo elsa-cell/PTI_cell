@@ -9,12 +9,15 @@ from detectron2.data.detection_utils import convert_image_to_rgb
 from detectron2.structures import ImageList
 from detectron2.utils.events import get_event_storage
 from detectron2.utils.logger import log_first_n
+from detectron2.layers import ShapeSpec
+from detectron2.modeling.meta_arch.rcnn import GeneralizedRCNN
 
 from ..backbone import Backbone, build_backbone
 from ..postprocessing import detector_postprocess
 from ..proposal_generator import build_proposal_generator
 from ..roi_heads import build_roi_heads
 from ..separators import build_separator
+
 
 from .build import META_ARCH_REGISTRY
 
@@ -38,8 +41,10 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
             cfg: the desired configuration
         """
         #super().__init__(cfg)
+        backbone = build_backbone(cfg, ShapeSpec(channels = cfg.INPUT.STACK_SIZE * len(cfg.MODEL.PIXEL_MEAN)))
+
         super().__init__(
-            backbone = build_backbone(cfg, ShapeSpec(channels = cfg.INPUT.STACK_SIZE * len(cfg.MODEL.PIXEL_MEAN))),
+            backbone = backbone,
             proposal_generator = build_proposal_generator(cfg, backbone.output_shape()),
             roi_heads = build_roi_heads(cfg, backbone.output_shape()),
             pixel_mean = cfg.MODEL.PIXEL_MEAN,
@@ -48,10 +53,9 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
             vis_period = cfg.VIS_PERIOD
         )
 
-        assert(cfg.IS_STACK = True)
+        assert(cfg.IS_STACK == True)
 
 
-        self.backbone = 
         self.separator = build_separator(cfg, self.backbone.output_shape())
         self._stack_size = cfg.INPUT.STACK_SIZE
         
@@ -59,7 +63,7 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
     def forward(self, batched_inputs):
         """
         Args:
-            batched_inputs: a list, batched outputs of :class:`DatasetMapper` .
+            batched_inputs: a list (nb_stacks_per_batch) of a list (nb_img_per_stack), batched outputs of :class:`DatasetMapper` .
                 Each item in the list contains the inputs for one image.
                 For now, each item in the list is a dict that contains:
 
@@ -78,20 +82,38 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
                 The dict contains one key "instances" whose value is a :class:`Instances`.
                 The :class:`Instances` object has the following keys:
                 "pred_boxes", "pred_classes", "scores", "pred_masks", "pred_keypoints"
-        """
-        nb_stacks = len(batched_inputs)
-        original_stacks = [None] * nb_stacks
-        for s in range(nb_stacks):
-            original_stacks[s] = [x["image"].to(self.device) for x in batched_inputs[s]]
         
-
+        Does : For a stack of size self._stack_size (in config):
+            inference if not test (see dedicated function)
+            test :
+                1. Preprocess the images
+                2. Reshape the tensor to be in format (N, Cin, H, W)
+                3. Goes through backbone = feature extraction
+                4. Feature separation to have one set of features for each representation of an image of the stack
+                5. Goes through the proposal generator
+                6. Goes through the roi heads
+                7. Update losses
+        """
         if not self.training:
             return self.inference(batched_inputs)
 
-        images = [None] * nb_stacks
-        for s in range(nb_stacks):
-            images[s] = self.preprocess_image(batched_inputs[s])
+        nb_stacks = len(batched_inputs)
 
+        original_stacks = [None] * nb_stacks
+        for s in range(nb_stacks):
+            original_stacks[s] = [x["image"].to(self.device) for x in batched_inputs[s]]
+
+
+        ## 1. Preprocess the images
+        # Shape of tensor : (C, H, W)
+        # NB : stacks_norm corresponds to stacks_norm in AugP-creatis/AdelaiDet-Z repo, and to images in detectron2 repo
+        #      preprocess_image corresponds to normalizer in condinst_z in AugP-creatis/AdelaiDet-Z repo, and to preprocess_image in detectron2 repo
+        stacks_norm = [None] * nb_stacks
+        for s in range(nb_stacks):
+            stacks_norm[s] = torch.stack([self.preprocess_image(x) for x in original_stacks[s]], dim=1)
+            # Shape of tensor : (C, Z, H, W)
+        stacks_norm = ImageList.from_tensors(stacks_norm, self.backbone.size_divisibility)
+        # Shape of tensor : (N, C, Z, H, W)
 
 
         if "instances" in batched_inputs[0][0]:
@@ -107,26 +129,35 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
 
 
 
+        ## 2. Reshape the tensor to be in format (N, Cin, H, W)
+        tensor_size = stacks_norm.tensor.shape                                                           
+        # Shape of tensor : (N, C, Z, H, W)
+        concat_stacks = stacks_norm.tensor.view(tensor_size[0], -1, tensor_size[-2], tensor_size[-1])    
+        # Shape of tensor : (N, C*Z, H, W)
 
-        tensor_size = images.tensor.shape
-        concat_stacks = images.tensor.view(tensor_size[0], -1, tensor_size[-2], tensor_size[-1])
-        features = self.backbone(concat_stacks)
+        ## 3. Goes through backbone = feature extraction
+        features = self.backbone(concat_stacks)         # Backbone takes (N, CHANNELS, H, W), with (N, C*Z, H, W)
+        # Shape of tensor : (N, Cout, H, W)
 
-        z_features = self.separator(features)
+        ## 4. Feature separation to have one set of features for each representation of an image of the stack
+        z_features = self.separator(features)   
+        # List (len = Z) of tensor : (N, Cout, H, W)
 
 
 
+        ## 5. Goes through the proposal generator
+        ## 6. Goes through the roi heads
+        ## 7. Update losses
         losses = {}
-
         for z in range(self._stack_size):
             if self.proposal_generator:
-                proposals, proposal_losses = self.proposal_generator(images[z], z_features[z], z_gt_instances[z])
+                proposals, proposal_losses = self.proposal_generator(stacks_norm, z_features[z], z_gt_instances[z])
             else:
                 assert "proposals" in batched_inputs[0][0]
                 proposals = [x["proposals"].to(self.device) for x in batched_inputs[z]]
                 proposal_losses = {}
 
-            _, detector_losses = self.roi_heads(images[z], z_features[z], proposals, z_gt_instances[z])
+            _, detector_losses = self.roi_heads(stacks_norm, z_features[z], proposals, z_gt_instances[z])
             if self.vis_period > 0:
                 storage = get_event_storage()
                 if storage.iter % self.vis_period == 0:
@@ -158,7 +189,7 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
         Does:
             For a stack of size self._stack_size (in config):
             1. Preprocessing (same for every input) : Normalize, pad and batch the input images.
-            2. Concatenate the stacks to be in proper format to be consumed by the backbone          VOIR QUE LE BACKBONE SOIT CAPABLE DE PRENDRE DES STACKS
+            2. Reshape the tensor to be in format (N, Cin, H, W)
             3. Goes through backbone = feature extraction
             4. Feature separation to have one set of features for each representation of an image of the stack
             5. Goes through the proposal generator
@@ -167,21 +198,35 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
         """
         assert not self.training
 
-        # 1. Stack preprocessing
         nb_stacks = len(batched_inputs)
-        images = [None] * nb_stacks
+
+        original_stacks = [None] * nb_stacks
         for s in range(nb_stacks):
-            images[s] = self.preprocess_image(batched_inputs[s])
+            original_stacks[s] = [x["image"].to(self.device) for x in batched_inputs[s]]
 
-        # 2. Concatenate the stacks to be in proper format to be consumed by the backbone
-        tensor_size = images.tensor.shape
-        concat_stacks = images.tensor.view(tensor_size[0], -1, tensor_size[-2], tensor_size[-1])
-        
-        # 3. Goes through backbone
-        features = self.backbone(concat_stacks)
 
-        # 4. Feature separation to have one set of features for each representation of an image of the stack
-        z_features = self.separator(features)
+        ## 1. Preprocess the images
+        # Shape of tensor : (C, H, W)
+        stacks_norm = [None] * nb_stacks
+        for s in range(nb_stacks):
+            stacks_norm[s] = torch.stack([self.preprocess_image(x) for x in original_stacks[s]], dim=1)
+            # Shape of tensor : (C, Z, H, W)
+        stacks_norm = ImageList.from_tensors(stacks_norm, self.backbone.size_divisibility)
+        # Shape of tensor : (N, C, Z, H, W)
+
+        ## 2. Reshape the tensor to be in format (N, Cin, H, W)
+        tensor_size = stacks_norm.tensor.shape                                                           
+        # Shape of tensor : (N, C, Z, H, W)
+        concat_stacks = stacks_norm.tensor.view(tensor_size[0], -1, tensor_size[-2], tensor_size[-1])    
+        # Shape of tensor : (N, C*Z, H, W)
+
+        ## 3. Goes through backbone = feature extraction
+        features = self.backbone(concat_stacks)         # Backbone takes (N, CHANNELS, H, W), with (N, C*Z, H, W)
+        # Shape of tensor : (N, Cout, H, W)
+
+        ## 4. Feature separation to have one set of features for each representation of an image of the stack
+        z_features = self.separator(features)   
+        # List (len = Z) of tensor : (N, Cout, H, W)
 
 
         # 5. Goes through the proposal generator
@@ -192,11 +237,11 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
         if detected_instances is None:
             for z in range(self._stack_size):
                 if self.proposal_generator:
-                    proposals, _ = self.proposal_generator(images, z_features[z], None)
+                    proposals, _ = self.proposal_generator(stacks_norm, z_features[z], None)
                 else:
                     assert "proposals" in batched_inputs[0][0]
                     proposals = [x["proposals"].to(self.device) for x in batched_inputs[0]]
-                results[z], _ = self.roi_heads(images, z_features[z], proposals, None)
+                results[z], _ = self.roi_heads(stacks_norm, z_features[z], proposals, None)
         else:
             for z in range(self._stack_size):
                 detected_instances = [x.to(self.device) for x in detected_instances[z]]
@@ -207,7 +252,17 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
         if do_postprocess:
             postprocessed_results = [None] * self._stack_size
             for z in range(self._stack_size):
-                postprocessed_results[z] = super()._postprocess(results[z], batched_inputs[z], images.image_sizes)
+                postprocessed_results[z] = super()._postprocess(results[z], batched_inputs[z], stacks_norm.image_sizes)
             return postprocessed_results
         else:
             return results
+
+    def preprocess_image(self, batched_inputs):
+        """
+        Normalize, pad and batch the input images.
+        """
+        images = [None] * self._stack_size
+        for z in range(self._stack_size):
+            # images[z] = [x["image"].to(self.device) for x in batched_inputs[z]] # Déjà fait en amont dans le programme
+            images[z] = [(x - self.pixel_mean) / self.pixel_std for x in images]
+        return images
