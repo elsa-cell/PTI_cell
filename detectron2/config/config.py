@@ -114,7 +114,6 @@ def get_stack_cell_config(cfg) -> CfgNode:
     # DATALOADER
     cfg.DATALOADER.NUM_WORKERS = 1  #max 2 recommended
     cfg.DATALOADER.ASPECT_RATIO_GROUPING = False
-    cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS = False
 
 
     cfg.MODEL.META_ARCHITECTURE = "GeneralizedRCNN_Z"

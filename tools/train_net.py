@@ -125,7 +125,7 @@ def setup(args):
     if args.default_cell_stack:
         cfg = get_stack_cell_config(cfg)
     if args.classes_dict:
-        cfg.MODEL.FCOS.NUM_CLASSES = len(eval(args.classes_dict))
+        cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(eval(args.classes_dict))
     
     cfg.MODEL.BACKBONE.FREEZE_AT = 0
     cfg.MODEL.WEIGHTS = ""
@@ -188,13 +188,15 @@ def main(args):
 
 
 if __name__ == "__main__":
-    args = default_argument_parser().parse_args()
+    args = default_argument_parser()
 
     args.add_argument('--default_cell_stack', default=True)
-    args.add_argument('--data-dir', default='/')
+    args.add_argument('--data-dir', default='/projects/INSA-Image/B01/Data/')
     args.add_argument('--classes-dict',type=str,default="{'Intact_Sharp':0, 'Broken_Sharp':2}")
     #Classes are like "{'Intact_Sharp':0,'Intact_Blurry':1,'Broken_Sharp':2,'Broken_Blurry':3}"
     args.add_argument('--cross-val', default=4)
+
+    args.parse_args()
 
     print("Command Line Args:", args)
     launch(

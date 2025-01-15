@@ -25,7 +25,7 @@ def setup_cfg(args):
     if args.default_cell_stack:
         cfg = get_stack_cell_config(cfg)
     if args.classes_dict:
-        cfg.MODEL.FCOS.NUM_CLASSES = len(eval(args.classes_dict))
+        cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(eval(args.classes_dict))
     cfg.merge_from_list(args.opts)
     # Set score_threshold for builtin models
     cfg.MODEL.RETINANET.SCORE_THRESH_TEST = args.confidence_threshold

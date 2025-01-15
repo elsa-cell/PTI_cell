@@ -23,6 +23,7 @@ from .build import META_ARCH_REGISTRY
 
 __all__ = ["GeneralizedRCNN_Z"]
 
+logger = logging.getLogger(__name__)
 
 @META_ARCH_REGISTRY.register()
 class GeneralizedRCNN_Z(GeneralizedRCNN):
@@ -53,7 +54,11 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
             vis_period = cfg.VIS_PERIOD
         )
 
-        assert(cfg.IS_STACK == True)
+        assert(cfg.DATALOADER.IS_STACK == True)
+
+        
+        self.pixel_mean = self.pixel_mean.to(self.device)
+        self.pixel_std  = self.pixel_std.to(self.device)
 
 
         self.separator = build_separator(cfg, self.backbone.output_shape())
@@ -102,7 +107,6 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
         original_stacks = [None] * nb_stacks
         for s in range(nb_stacks):
             original_stacks[s] = [x["image"].to(self.device) for x in batched_inputs[s]]
-
 
         ## 1. Preprocess the images
         # Shape of tensor : (C, H, W)
@@ -261,8 +265,4 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
         """
         Normalize, pad and batch the input images.
         """
-        images = [None] * self._stack_size
-        for z in range(self._stack_size):
-            # images[z] = [x["image"].to(self.device) for x in batched_inputs[z]] # Déjà fait en amont dans le programme
-            images[z] = [(x - self.pixel_mean) / self.pixel_std for x in images]
-        return images
+        return (batched_inputs - self.pixel_mean) / self.pixel_std
