@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 """
 Detection Training Script.
@@ -23,8 +22,8 @@ import torch
 
 import detectron2.utils.comm as comm
 from detectron2.checkpoint import DetectionCheckpointer
-from detectron2.config import get_cfg
-from detectron2.data import MetadataCatalog
+from detectron2.config import get_cfg, get_stack_cell_config
+from detectron2.data import MetadataCatalog, DatasetCatalog
 from detectron2.engine import DefaultTrainer, default_argument_parser, default_setup, hooks, launch
 from detectron2.evaluation import (
     CityscapesInstanceEvaluator,
@@ -38,6 +37,7 @@ from detectron2.evaluation import (
     verify_results,
 )
 from detectron2.modeling import GeneralizedRCNNWithTTA
+from detectron2.data.datasets import get_dicts
 
 
 class Trainer(DefaultTrainer):
@@ -122,6 +122,25 @@ def setup(args):
     """
     cfg = get_cfg()
     cfg.merge_from_file(args.config_file)
+    if args.default_cell_stack:
+        cfg = get_stack_cell_config(cfg)
+    if args.classes_dict:
+        cfg.MODEL.FCOS.NUM_CLASSES = len(eval(args.classes_dict))
+    
+    cfg.MODEL.BACKBONE.FREEZE_AT = 0
+    cfg.MODEL.WEIGHTS = ""
+    '''
+    cfg.MODEL.PIXEL_MEAN = [218.96615195, 205.58776696, 199.45428186]
+    cfg.MODEL.PIXEL_STD = [20.1397195,  19.81115748, 21.38672478]
+    '''
+
+    # SOLVER
+    cfg.SOLVER.IMS_PER_BATCH = 4
+    cfg.SOLVER.MAX_ITER = 10000
+    cfg.SOLVER.CHECKPOINT_PERIOD = 1000
+    cfg.SOLVER.BASE_LR = 0.001
+    # cfg.SOLVER.REFERENCE_WORLD_SIZE = 0
+
     cfg.merge_from_list(args.opts)
     cfg.freeze()
     default_setup(cfg, args)
@@ -131,6 +150,16 @@ def setup(args):
 def main(args):
     cfg = setup(args)
 
+    classes = eval(args.classes_dict)
+
+    # If the dataset is custom, adapt the registering function
+    if cfg.DATALOADER.IS_STACK:
+        DatasetCatalog.register('train', lambda: get_dicts(args.data_dir, 'train', args.cross_val, classes))
+        DatasetCatalog.register('val', lambda: get_dicts(args.data_dir, 'val', args.cross_val, classes))
+        # Set the metadata for the dataset.
+        MetadataCatalog.get('train').set(thing_classes=list(classes.keys()))
+        MetadataCatalog.get('val').set(thing_classes=list(classes.keys()))
+    
     if args.eval_only:
         model = Trainer.build_model(cfg)
         DetectionCheckpointer(model, save_dir=cfg.OUTPUT_DIR).resume_or_load(
@@ -154,11 +183,19 @@ def main(args):
         trainer.register_hooks(
             [hooks.EvalHook(0, lambda: trainer.test_with_TTA(cfg, trainer.model))]
         )
+
     return trainer.train()
 
 
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
+
+    args.add_argument('--default_cell_stack', default=True)
+    args.add_argument('--data-dir', default='/')
+    args.add_argument('--classes-dict',type=str,default="{'Intact_Sharp':0, 'Broken_Sharp':2}")
+    #Classes are like "{'Intact_Sharp':0,'Intact_Blurry':1,'Broken_Sharp':2,'Broken_Blurry':3}"
+    args.add_argument('--cross-val', default=4)
+
     print("Command Line Args:", args)
     launch(
         main,

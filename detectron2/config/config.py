@@ -87,6 +87,47 @@ def get_cfg() -> CfgNode:
 
     return _C.clone()
 
+def get_stack_cell_config(cfg) -> CfgNode:
+    """
+    Sets parameters of the given config.
+
+    Returns:
+        a detectron2 CfgNode instance.
+    """
+    # INPUT
+    #cfg.INPUT.FORMAT = "BGR"
+    #cfg.INPUT.MASK_FORMAT = "polygon"
+    cfg.INPUT.MIN_SIZE_TEST = 800
+    #cfg.INPUT.MAX_SIZE_TEST = 1333
+
+    # DATASETS
+    cfg.DATASETS.TRAIN = ("train",)
+    cfg.DATASETS.VAL = ("val",)
+    cfg.DATASETS.TEST = ('test',)
+
+    # STACK
+    cfg.DATALOADER.IS_STACK = True
+    cfg.INPUT.STACK_SIZE = 11
+    cfg.INPUT.EXTENSION = ".png"
+    cfg.INPUT.STACK_SEPARATOR = "F"
+
+    # DATALOADER
+    cfg.DATALOADER.NUM_WORKERS = 1  #max 2 recommended
+    cfg.DATALOADER.ASPECT_RATIO_GROUPING = False
+    cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS = False
+
+
+    cfg.MODEL.META_ARCHITECTURE = "GeneralizedRCNN_Z"
+    cfg.MODEL.SEPARATOR.NAME = "SharedConvSeparator"
+
+    #Remove all online augmentations
+    cfg.INPUT.HFLIP_TRAIN = False
+    cfg.INPUT.CROP.ENABLED = False
+    cfg.INPUT.IS_ROTATE = False
+    cfg.TEST.AUG.ENABLED = False
+
+
+    return  cfg
 
 def set_global_cfg(cfg: CfgNode) -> None:
     """

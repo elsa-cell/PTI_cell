@@ -7,7 +7,7 @@ import time
 import cv2
 import tqdm
 
-from detectron2.config import get_cfg
+from detectron2.config import get_cfg, get_stack_cell_config
 from detectron2.data.detection_utils import read_image
 from detectron2.utils.logger import setup_logger
 
@@ -21,6 +21,11 @@ def setup_cfg(args):
     # load config from file and command-line arguments
     cfg = get_cfg()
     cfg.merge_from_file(args.config_file)
+    cfg.DATALOADER.IS_STACK = args.stack
+    if args.default_cell_stack:
+        cfg = get_stack_cell_config(cfg)
+    if args.classes_dict:
+        cfg.MODEL.FCOS.NUM_CLASSES = len(eval(args.classes_dict))
     cfg.merge_from_list(args.opts)
     # Set score_threshold for builtin models
     cfg.MODEL.RETINANET.SCORE_THRESH_TEST = args.confidence_threshold
@@ -44,7 +49,10 @@ def get_parser():
         "--input",
         nargs="+",
         help="A list of space separated input images; "
-        "or a single glob pattern such as 'directory/*.jpg'",
+        "or a single glob pattern such as 'directory/*.jpg'"
+        "For a stack, only specify the path up to the stack separator"
+        "cfg.INPUT.STACK_SEPARATOR + str(z) + cfg.INPUT.EXTENSION"
+        "will automatically be added to the path"
     )
     parser.add_argument(
         "--output",
@@ -64,6 +72,22 @@ def get_parser():
         default=[],
         nargs=argparse.REMAINDER,
     )
+    parser.add_argument(
+        "--stack",
+        type= bool,
+        default=0,
+        help="Whether we work with a stack. Options from stack must be specified in --options",
+    )
+    parser.add_argument(
+        "--default_cell_stack",
+        type= bool,
+        default=0,
+        help="Whether we work with the default cell stack. No additional option from stack is required in --options but it is possible to specify options, it will override the default",
+    )
+    parser.add_argument('--classes-dict',type=str,default="{'Intact_Sharp':0, 'Broken_Sharp':2}")
+    #Classes are like "{'Intact_Sharp':0,'Intact_Blurry':1,'Broken_Sharp':2,'Broken_Blurry':3}"
+    parser.add_argument('--cross-val', default=4)
+
     return parser
 
 
@@ -79,37 +103,69 @@ if __name__ == "__main__":
     demo = VisualizationDemo(cfg)
 
     if args.input:
-        if len(args.input) == 1:
-            args.input = glob.glob(os.path.expanduser(args.input[0]))
-            assert args.input, "The input path(s) was not found"
-        for path in tqdm.tqdm(args.input, disable=not args.output):
-            # use PIL, to be consistent with evaluation
-            img = read_image(path, format="BGR")
-            start_time = time.time()
-            predictions, visualized_output = demo.run_on_image(img)
-            logger.info(
-                "{}: {} in {:.2f}s".format(
-                    path,
-                    "detected {} instances".format(len(predictions["instances"]))
-                    if "instances" in predictions
-                    else "finished",
-                    time.time() - start_time,
-                )
-            )
+        if (cfg.DATALOADER.IS_STACK):
+            for input in tqdm.tqdm(args.input, disable=not args.output):
+                stack = [None] * cfg.INPUT.STACK_SIZE
+                for z in range(cfg.INPUT.STACK_SIZE):
+                    path = os.path.expanduser(input + cfg.INPUT.STACK_SEPARATOR + str(z) + cfg.INPUT.EXTENSION)
+                    assert path, "The input path(s) was not found"
+                    # use PIL, to be consistent with evaluation
+                    stack[z] = read_image(path, format="BGR")
 
-            if args.output:
-                if os.path.isdir(args.output):
-                    assert os.path.isdir(args.output), args.output
-                    out_filename = os.path.join(args.output, os.path.basename(path))
+                start_time = time.time()
+                predictions, visualized_output = demo.run_on_stack(stack)
+
+                nb_predictions = 0
+                for z in range(cfg.INPUT.STACK_SIZE):
+                    nb_predictions += len(predictions[z]["instances"])
+
+                logger.info(
+                    "{}: detected {} instances in {:.2f}s".format(
+                        input, nb_predictions, time.time() - start_time
+                    )
+                )
+
+                if args.output:
+                    if os.path.isdir(args.output):
+                        stack_name = os.path.basename(input)
+                        for z in range(cfg.INPUT.STACK_SIZE):
+                            out_filename = os.path.join(args.output, stack_name + cfg.INPUT.STACK_SEPARATOR + str(z) + cfg.INPUT.EXTENSION)
+                            visualized_output[z].save(out_filename)
+                    else:
+                        logger.info("Please specify a directory with args.output")
+
+        else:
+            if len(args.input) == 1:
+                args.input = glob.glob(os.path.expanduser(args.input[0]))
+                assert args.input, "The input path(s) was not found"
+            for path in tqdm.tqdm(args.input, disable=not args.output):
+                # use PIL, to be consistent with evaluation
+                img = read_image(path, format="BGR")
+                start_time = time.time()
+                predictions, visualized_output = demo.run_on_image(img)
+                logger.info(
+                    "{}: {} in {:.2f}s".format(
+                        path,
+                        "detected {} instances".format(len(predictions["instances"]))
+                        if "instances" in predictions
+                        else "finished",
+                        time.time() - start_time,
+                    )
+                )
+
+                if args.output:
+                    if os.path.isdir(args.output):
+                        assert os.path.isdir(args.output), args.output
+                        out_filename = os.path.join(args.output, os.path.basename(path))
+                    else:
+                        assert len(args.input) == 1, "Please specify a directory with args.output"
+                        out_filename = args.output
+                    visualized_output.save(out_filename)
                 else:
-                    assert len(args.input) == 1, "Please specify a directory with args.output"
-                    out_filename = args.output
-                visualized_output.save(out_filename)
-            else:
-                cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
-                cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
-                if cv2.waitKey(0) == 27:
-                    break  # esc to quit
+                    cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
+                    cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
+                    if cv2.waitKey(0) == 27:
+                        break  # esc to quit
     elif args.webcam:
         assert args.input is None, "Cannot have both --input and --webcam!"
         assert args.output is None, "output not yet supported with --webcam!"
