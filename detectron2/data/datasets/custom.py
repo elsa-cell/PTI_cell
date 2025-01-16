@@ -93,7 +93,6 @@ def get_dicts(dir, mode, idx_cross_val, classes, dataset_name=None):
         img_dir = os.path.join(dir, 'Cross-val', 'Xval'+str(fold), 'images')
         ann_dir = os.path.join(dir, 'Cross-val', 'Xval'+str(fold),'labels')
 
-        # TODO faire des logger error
         if not os.path.exists(img_dir):
             logger.error("The path {} does not exist.".format(img_dir))
         if not os.path.exists(ann_dir):
@@ -131,7 +130,7 @@ def get_dicts(dir, mode, idx_cross_val, classes, dataset_name=None):
             record["annotations"] = objs
             dataset_dicts.append(record)
 
-    # In this if, we set the name of the different classes in the MetadataCatalog
+    # In this, if we set the name of the different classes in the MetadataCatalog
     if dataset_name is not None:
         metadata = MetadataCatalog.get(dataset_name)
         thing_classes = [class_name for idx_in_dict, class_name in enumerate(classes.keys())]

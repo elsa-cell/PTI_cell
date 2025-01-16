@@ -46,6 +46,12 @@ class MapDataset(data.Dataset):
             if self._is_stack:
                 z_data = [None] * self._stack_size
                 map_succeed = True
+
+                if (len(self._dataset[cur_idx]) < self._stack_size):
+                    logger = logging.getLogger(__name__)
+                    logger.info("Not enough images in the stack: index {}, expected {} images, got {}".format(idx, self._stack_size, len(self._dataset[cur_idx]))
+                )
+                    self._fallback_candidates.discard(cur_idx)
                 for z in range(self._stack_size):
                     data = self._map_func(self._dataset[cur_idx][z])
                     if data is not None:
@@ -153,7 +159,7 @@ class DatasetFromList(data.Dataset):
             if cnt_too_big != 0:
                 logger.warning("{} stacks have a bigger size than expected ({})".format(cnt_too_big, stack_size))
             if cnt_too_small != 0:
-                logger.warning("{} stacks have a smaller size than expected ({})".format(cnt_too_small, stack_size))
+                logger.warning("{} stacks have a smaller size than expected ({}). The stacks will be ignored by the dataset mapper".format(cnt_too_small, stack_size))
             if cnt_too_big == 0 and cnt_too_small == 0:
                 logger.info("All stacks have {} images".format(stack_size))
 
