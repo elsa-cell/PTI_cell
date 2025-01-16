@@ -51,14 +51,15 @@ class MapDataset(data.Dataset):
                     logger = logging.getLogger(__name__)
                     logger.info("Not enough images in the stack: index {}, expected {} images, got {}".format(idx, self._stack_size, len(self._dataset[cur_idx]))
                 )
-                    self._fallback_candidates.discard(cur_idx)
-                for z in range(self._stack_size):
-                    data = self._map_func(self._dataset[cur_idx][z])
-                    if data is not None:
-                        z_data[z] = data
-                    else:
-                        map_succeed = False
-
+                    map_succeed = False
+                else:
+                    for z in range(self._stack_size):
+                        data = self._map_func(self._dataset[cur_idx][z])
+                        if data is not None:
+                            z_data[z] = data
+                        else:
+                            map_succeed = False
+    
                 if map_succeed:
                     self._fallback_candidates.add(cur_idx)
                     return z_data
@@ -132,12 +133,14 @@ class DatasetFromList(data.Dataset):
 
             # Create the list of the stacked dictionaries & verify if it is well constructed
             z_lst = list(stacks_dict.values())
-            nb_stacks = len(z_lst)
-            logger.info("Number of stacks: {}".format(nb_stacks))
+            nb_stacks_before = len(z_lst)
+            logger.info("Number of stacks: {}".format(nb_stacks_before))
+            idx_too_little = []
+            cnt_usefull_img = stack_size*nb_stacks_before
             cnt_img = 0
             cnt_too_big = 0
             cnt_too_small = 0
-            for s in range(nb_stacks):
+            for s in range(nb_stacks_before):
                 cnt_img += len(z_lst[s])
                 if len(z_lst[s]) == stack_size:
                     stack_sorted = True
@@ -149,7 +152,14 @@ class DatasetFromList(data.Dataset):
                 elif len(z_lst[s]) > stack_size:
                     cnt_too_big += 1
                 elif len(z_lst[s]) < stack_size:
+                    cnt_usefull_img -= stack_size
                     cnt_too_small +=1
+                    idx_too_little.append(s)
+            
+            for i in reversed(idx_too_little):
+                z_lst.remove(z_lst[i])        # delete this from the list so it won't be taken into account : will produce errors otherwise
+
+            nb_stacks_after = len(z_lst)
 
             if cnt_img != nb_img:
                 logger.warning("There are {} images in total, which is not expected ({})".format(cnt_img, nb_img))
@@ -159,7 +169,8 @@ class DatasetFromList(data.Dataset):
             if cnt_too_big != 0:
                 logger.warning("{} stacks have a bigger size than expected ({})".format(cnt_too_big, stack_size))
             if cnt_too_small != 0:
-                logger.warning("{} stacks have a smaller size than expected ({}). The stacks will be ignored by the dataset mapper".format(cnt_too_small, stack_size))
+                logger.warning("{} stacks have a smaller size than expected ({}). These stacks have been removed from the list".format(cnt_too_small, stack_size))
+                logger.info("There were {} stacks, now {} stacks for a total of {} images".format(nb_stacks_before, nb_stacks_after, cnt_usefull_img))
             if cnt_too_big == 0 and cnt_too_small == 0:
                 logger.info("All stacks have {} images".format(stack_size))
 
