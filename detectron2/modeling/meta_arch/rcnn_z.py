@@ -167,6 +167,15 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
                 if storage.iter % self.vis_period == 0:
                     self.visualize_training(batched_inputs[z], proposals)
 
+            # On garde en mémoire les losses de toutes les images
+            proposal_losses_keys = list(proposal_losses.keys()).copy()
+            for l in proposal_losses_keys:
+                proposal_losses["{}_{}".format(z, l)] = proposal_losses.pop(l)
+
+            detector_losses_keys = list(detector_losses.keys()).copy()
+            for l in detector_losses_keys:
+                detector_losses["{}_{}".format(z, l)] = detector_losses.pop(l)
+
             
             losses.update(detector_losses)
             losses.update(proposal_losses)
