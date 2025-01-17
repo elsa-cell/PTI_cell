@@ -34,6 +34,8 @@ MODEL:
 DATASETS:
   TRAIN: ("train",)
   TEST: ("val",)
+DATALOADER:
+  IS_STACK: True
 SOLVER:
   IMS_PER_BATCH: 2
   BASE_LR: 0.005
