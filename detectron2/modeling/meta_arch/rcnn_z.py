@@ -262,10 +262,23 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
 
 
         # 7. Postprocessing if needed, by image of the stack
+        # _postprocess function needs second argument to be a list of the number of images in the batch
+        # It corresponds to batched_inputs in the rcnn.py file as it is a list of dict of len=batch_size 
+        # Here, batched_inputs is a list (len=batch_size) of a list (len=stack_size) of dict
+        # We now want to create a list (len=stack_size) of a list (len=batch_size) of dict 
+        # We will call this list z_batched_inputs
+        # so that we can give the list z_batched_inputs[z] to the function _postprocess
+        # We will call the function stack_size times
+        # NB: z_batched_inputs[z] is of len batch_size, as we need it to be
+        z_batched_inputs = [[None] * nb_stacks for z in range(self._stack_size)]
+        for s in range(nb_stacks):
+            for z in range(self._stack_size):
+                z_batched_inputs[z][s] = batched_inputs[s][z]
+
         if do_postprocess:
             postprocessed_results = [None] * self._stack_size
             for z in range(self._stack_size):
-                postprocessed_results[z] = super()._postprocess(results[z], batched_inputs[z], stacks_norm.image_sizes)
+                postprocessed_results[z] = super()._postprocess(results[z], z_batched_inputs[z], stacks_norm.image_sizes)
             return postprocessed_results
         else:
             return results
