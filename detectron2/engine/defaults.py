@@ -233,8 +233,13 @@ class DefaultPredictor:
 
                 inputs = {"image": image, "height": height, "width": width}
             with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=self._use_amp):
-                predictions = self.model([inputs])
-            return predictions
+                
+                if self._is_stack:
+                    predictions = [preds[0] for preds in self.model([inputs])]
+                    
+                else:
+                    predictions = self.model([inputs])[0]
+            return predictions                
 
 
 class DefaultTrainer(SimpleTrainer):
