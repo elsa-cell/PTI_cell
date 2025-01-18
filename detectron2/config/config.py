@@ -95,10 +95,10 @@ def get_stack_cell_config(cfg) -> CfgNode:
         a detectron2 CfgNode instance.
     """
     # INPUT
-    #cfg.INPUT.FORMAT = "BGR"
-    #cfg.INPUT.MASK_FORMAT = "polygon"
-    cfg.INPUT.MIN_SIZE_TEST = 800
-    #cfg.INPUT.MAX_SIZE_TEST = 1333
+    cfg.INPUT.FORMAT = "BGR"
+    cfg.INPUT.MASK_FORMAT = "polygon"
+    cfg.INPUT.MIN_SIZE_TRAIN = (480,)
+    cfg.INPUT.MIN_SIZE_TEST = (480,)
 
     # DATASETS
     cfg.DATASETS.TRAIN = ("train",)

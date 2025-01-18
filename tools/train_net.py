@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 """
 Detection Training Script.
@@ -142,6 +143,9 @@ def setup(args):
     # cfg.SOLVER.REFERENCE_WORLD_SIZE = 0
 
     cfg.merge_from_list(args.opts)
+    
+    cfg.MODEL.RESNETS.RES2_OUT_CHANNELS = {18:64, 32:64, 50:256, 101:256, 152:256}[cfg.MODEL.RESNETS.DEPTH]
+    
     cfg.freeze()
     default_setup(cfg, args)
     return cfg
@@ -196,7 +200,7 @@ if __name__ == "__main__":
     #Classes are like "{'Intact_Sharp':0,'Intact_Blurry':1,'Broken_Sharp':2,'Broken_Blurry':3}"
     args.add_argument('--cross-val', default=4)
 
-    args.parse_args()
+    args = args.parse_args()
 
     print("Command Line Args:", args)
     launch(

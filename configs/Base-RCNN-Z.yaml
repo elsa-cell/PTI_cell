@@ -4,6 +4,7 @@ MODEL:
     NAME: "build_resnet_fpn_backbone"
   RESNETS:
     OUT_FEATURES: ["res2", "res3", "res4", "res5"]
+    NORM: "BN"
   FPN:
     IN_FEATURES: ["res2", "res3", "res4", "res5"]
   ANCHOR_GENERATOR:
@@ -42,5 +43,6 @@ SOLVER:
   STEPS: (60000, 80000)
   MAX_ITER: 90000
 INPUT:
-  MIN_SIZE_TRAIN: (800,)
+  MIN_SIZE_TRAIN: (480,)
+  MIN_SIZE_TEST: (480,)
 VERSION: 2
