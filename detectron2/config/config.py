@@ -98,7 +98,9 @@ def get_stack_cell_config(cfg) -> CfgNode:
     cfg.INPUT.FORMAT = "BGR"
     cfg.INPUT.MASK_FORMAT = "polygon"
     cfg.INPUT.MIN_SIZE_TRAIN = (480,)
-    cfg.INPUT.MIN_SIZE_TEST = (480,)
+    cfg.INPUT.MIN_SIZE_TEST = 480
+    cfg.TEST.AUG.MIN_SIZES = (480,)
+    cfg.TEST.AUG.MAX_SIZE = 800
 
     # DATASETS
     cfg.DATASETS.TRAIN = ("train",)
