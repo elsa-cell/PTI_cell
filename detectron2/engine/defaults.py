@@ -190,7 +190,7 @@ class DefaultPredictor:
         self._use_amp = cfg.MODEL.USE_AMP
 
         self.aug = T.ResizeShortestEdge(
-            [cfg.INPUT.MIN_SIZE_TEST, cfg.INPUT.MIN_SIZE_TEST], cfg.INPUT.MAX_SIZE_TEST
+            [cfg.INPUT.MIN_SIZE_TEST, cfg.INPUT.MIN_SIZE_TEST], cfg.INPUT.MAX_SIZE_TEST,
         )
 
         self.input_format = cfg.INPUT.FORMAT
@@ -233,7 +233,7 @@ class DefaultPredictor:
 
                 inputs = {"image": image, "height": height, "width": width}
             with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=self._use_amp):
-                predictions = self.model([inputs])[0]
+                predictions = self.model([inputs])
             return predictions
 
 
