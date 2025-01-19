@@ -2,6 +2,7 @@ MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN_Z"
   BACKBONE:
     NAME: "build_resnet_fpn_backbone"
+    IMAGE_DIM: 2
   RESNETS:
     OUT_FEATURES: ["res2", "res3", "res4", "res5"]
     NORM: "BN"

@@ -89,7 +89,7 @@ _C.INPUT.MASK_FORMAT = "polygon"  # alternative: "bitmask"
 # STACK
 _C.INPUT.STACK_SIZE = 11
 _C.INPUT.EXTENSION = ".png"
-_C.INPUT.STACK_SEPARATOR = "F"
+_C.INPUT.SLICE_SEPARATOR = "F"
 
 # -----------------------------------------------------------------------------
 # Dataset
@@ -135,6 +135,10 @@ _C.DATALOADER.IS_STACK = False
 # Backbone options
 # ---------------------------------------------------------------------------- #
 _C.MODEL.BACKBONE = CN()
+
+# Number of dimensions of the input image
+_C.MODEL.BACKBONE.IMAGE_DIM = 2
+
 
 _C.MODEL.BACKBONE.NAME = "build_resnet_backbone"
 # Freeze the first several stages so they are not trained.
