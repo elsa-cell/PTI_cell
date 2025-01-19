@@ -42,7 +42,15 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
             cfg: the desired configuration
         """
         #super().__init__(cfg)
-        backbone = build_backbone(cfg, ShapeSpec(channels = cfg.INPUT.STACK_SIZE * len(cfg.MODEL.PIXEL_MEAN)))
+        self._image_dim = cfg.BACKBONE.IMAGE_DIM
+        if self._image_dim == 2:
+            input_shape = ShapeSpec(channels = cfg.INPUT.STACK_SIZE * len(cfg.MODEL.PIXEL_MEAN))
+        else:
+            input_shape = ShapeSpec(stack_size=cfg.INPUT.STACK_SIZE, channels=len(cfg.MODEL.PIXEL_MEAN))
+
+
+
+        backbone = build_backbone(cfg, input_shape=input_shape)
 
         super().__init__(
             backbone = backbone,
@@ -132,15 +140,18 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
             z_gt_instances = [None] * self._stack_size
 
 
-
-        ## 2. Reshape the tensor to be in format (N, Cin, H, W)
-        tensor_size = stacks_norm.tensor.shape                                                           
-        # Shape of tensor : (N, C, Z, H, W)
-        concat_stacks = stacks_norm.tensor.view(tensor_size[0], -1, tensor_size[-2], tensor_size[-1])    
-        # Shape of tensor : (N, C*Z, H, W)
+        if self._image_dim == 2:
+            ## 2. Reshape the tensor to be in format (N, Cin, H, W)
+            tensor_size = stacks_norm.tensor.shape                                                           
+            # Shape of tensor : (N, C, Z, H, W)
+            input_tensor = stacks_norm.tensor.view(tensor_size[0], -1, tensor_size[-2], tensor_size[-1])    
+            # Shape of tensor : (N, C*Z, H, W)
+        elif self._image_dim == 3:
+            input_tensor = stacks_norm.tensor
+            # Shape of tensor : (N, C, Z, H, W)
 
         ## 3. Goes through backbone = feature extraction
-        features = self.backbone(concat_stacks)         # Backbone takes (N, CHANNELS, H, W), with (N, C*Z, H, W)
+        features = self.backbone(input_tensor)         # Backbone 2D takes (N, CHANNELS, H, W), with (N, C*Z, H, W) ; 3D takes (N, C, Z, H, W)
         # Shape of tensor : (N, Cout, H, W)
 
         ## 4. Feature separation to have one set of features for each representation of an image of the stack
@@ -227,14 +238,19 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
         stacks_norm = ImageList.from_tensors(stacks_norm, self.backbone.size_divisibility)
         # Shape of tensor : (N, C, Z, H, W)
 
-        ## 2. Reshape the tensor to be in format (N, Cin, H, W)
-        tensor_size = stacks_norm.tensor.shape                                                           
-        # Shape of tensor : (N, C, Z, H, W)
-        concat_stacks = stacks_norm.tensor.view(tensor_size[0], -1, tensor_size[-2], tensor_size[-1])    
-        # Shape of tensor : (N, C*Z, H, W)
+        if self._image_dim == 2:
+            ## 2. Reshape the tensor to be in format (N, Cin, H, W)
+            tensor_size = stacks_norm.tensor.shape                                                           
+            # Shape of tensor : (N, C, Z, H, W)
+            input_tensor = stacks_norm.tensor.view(tensor_size[0], -1, tensor_size[-2], tensor_size[-1])    
+            # Shape of tensor : (N, C*Z, H, W)
+        elif self._image_dim == 3:
+            input_tensor = stacks_norm.tensor
+            # Shape of tensor : (N, C, Z, H, W)
+
 
         ## 3. Goes through backbone = feature extraction
-        features = self.backbone(concat_stacks)         # Backbone takes (N, CHANNELS, H, W), with (N, C*Z, H, W)
+        features = self.backbone(input_tensor)         # Backbone 2D takes (N, CHANNELS, H, W), with (N, C*Z, H, W) ; 3D takes (N, C, Z, H, W)
         # Shape of tensor : (N, Cout, H, W)
 
         ## 4. Feature separation to have one set of features for each representation of an image of the stack

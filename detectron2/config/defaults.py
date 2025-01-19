@@ -328,7 +328,7 @@ _C.MODEL.ROI_BOX_HEAD.NUM_CONV = 0
 # Channel dimension for Conv layers in the RoI box head
 _C.MODEL.ROI_BOX_HEAD.CONV_DIM = 256
 # Normalization method for the convolution layers.
-# Options: "" (no norm), "GN", "SyncBN".
+# Options: "" (no norm), "GN", "SyncBN2d".
 _C.MODEL.ROI_BOX_HEAD.NORM = ""
 # Whether to use class agnostic for bbox regression
 _C.MODEL.ROI_BOX_HEAD.CLS_AGNOSTIC_BBOX_REG = False
@@ -358,7 +358,7 @@ _C.MODEL.ROI_MASK_HEAD.POOLER_SAMPLING_RATIO = 0
 _C.MODEL.ROI_MASK_HEAD.NUM_CONV = 0  # The number of convs in the mask head
 _C.MODEL.ROI_MASK_HEAD.CONV_DIM = 256
 # Normalization method for the convolution layers.
-# Options: "" (no norm), "GN", "SyncBN".
+# Options: "" (no norm), "GN", "SyncBN2d".
 _C.MODEL.ROI_MASK_HEAD.NORM = ""
 # Whether to use class agnostic for mask prediction
 _C.MODEL.ROI_MASK_HEAD.CLS_AGNOSTIC_MASK = False

@@ -1,9 +1,14 @@
-_BASE_: "../Base-RCNN-3D.yaml"
+_BASE_: "../Base-RCNN-Z.yaml"
 MODEL:
+  BACKBONE:
+    IMAGE_DIM: 3
   WEIGHTS: ""
   MASK_ON: True
   RESNETS:
     DEPTH: 50
+    NORM: "BN3d"
+  SEPARATOR: 
+    NAME: "From3dTo2d"
 # SOLVER:
 #   STEPS: (210000, 250000)
 #   MAX_ITER: 270000
