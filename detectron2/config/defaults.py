@@ -89,7 +89,7 @@ _C.INPUT.MASK_FORMAT = "polygon"  # alternative: "bitmask"
 # STACK
 _C.INPUT.STACK_SIZE = 11
 _C.INPUT.EXTENSION = ".png"
-_C.INPUT.STACK_SEPARATOR = "F"
+_C.INPUT.SLICE_SEPARATOR = "F"
 
 # -----------------------------------------------------------------------------
 # Dataset
@@ -136,6 +136,10 @@ _C.DATALOADER.IS_STACK = False
 # ---------------------------------------------------------------------------- #
 _C.MODEL.BACKBONE = CN()
 
+# Number of dimensions of the input image
+_C.MODEL.BACKBONE.IMAGE_DIM = 2
+
+
 _C.MODEL.BACKBONE.NAME = "build_resnet_backbone"
 # Freeze the first several stages so they are not trained.
 # There are 5 stages in ResNet. The first is a convolution, and the following
@@ -164,6 +168,7 @@ _C.MODEL.FPN.FUSE_TYPE = "sum"
 # Separator options
 # ---------------------------------------------------------------------------- #
 _C.MODEL.SEPARATOR = CN()
+# Possibilities : ConvSeparator, SharedConvSeparator, From3dTo2d
 _C.MODEL.SEPARATOR.NAME = "SharedConvSeparator"
 
 # ---------------------------------------------------------------------------- #
@@ -480,7 +485,7 @@ _C.MODEL.RESNETS.OUT_FEATURES = ["res4"]  # res4 for C4 backbone, res2..5 for FP
 # Number of groups to use; 1 ==> ResNet; > 1 ==> ResNeXt
 _C.MODEL.RESNETS.NUM_GROUPS = 1
 
-# Options: FrozenBN, GN, "SyncBN", "BN"
+# Options: FrozenBN, GN, "SyncBN2d", "SyncBN3d", "BN2d", "BN3d"
 _C.MODEL.RESNETS.NORM = "FrozenBN"
 
 # Baseline width of each group.

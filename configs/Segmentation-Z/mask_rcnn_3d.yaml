@@ -1,0 +1,10 @@
+_BASE_: "../Base-RCNN-3D.yaml"
+MODEL:
+  WEIGHTS: ""
+  MASK_ON: True
+  RESNETS:
+    DEPTH: 50
+# SOLVER:
+#   STEPS: (210000, 250000)
+#   MAX_ITER: 270000
+

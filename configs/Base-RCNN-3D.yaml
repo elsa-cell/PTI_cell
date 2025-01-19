@@ -1,18 +1,19 @@
 MODEL:
-  META_ARCHITECTURE: "GeneralizedRCNN_Z"
+  META_ARCHITECTURE: "GeneralizedRCNN_3D"
   BACKBONE:
     NAME: "build_resnet_fpn_backbone"
-    IMAGE_DIM: 2
+    IMAGE_DIM: 3
   RESNETS:
     OUT_FEATURES: ["res2", "res3", "res4", "res5"]
-    NORM: "BN2d"
+    NORM: "BN3d"
   FPN:
+  
     IN_FEATURES: ["res2", "res3", "res4", "res5"]
   ANCHOR_GENERATOR:
     SIZES: [[32], [64], [128], [256], [512]]  # One size for each in feature map
     ASPECT_RATIOS: [[0.5, 1.0, 2.0]]  # Three aspect ratios (same for all in feature maps)
   SEPARATOR: 
-    NAME: "SharedConvSeparator"
+    NAME: "From3dTo2d"
   RPN:
     IN_FEATURES: ["p2", "p3", "p4", "p5", "p6"]
     PRE_NMS_TOPK_TRAIN: 2000  # Per FPN level
