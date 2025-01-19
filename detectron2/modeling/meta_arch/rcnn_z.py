@@ -42,7 +42,7 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
             cfg: the desired configuration
         """
         #super().__init__(cfg)
-        self._image_dim = cfg.BACKBONE.IMAGE_DIM
+        self._image_dim = cfg.MODEL.BACKBONE.IMAGE_DIM
         if self._image_dim == 2:
             input_shape = ShapeSpec(channels = cfg.INPUT.STACK_SIZE * len(cfg.MODEL.PIXEL_MEAN))
         else:
