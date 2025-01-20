@@ -193,6 +193,7 @@ class LastLevelMaxPool(nn.Module):
 
     def __init__(self, image_dim):
         super().__init__()
+        self._image_dim = image_dim
         self.num_levels = 1
         self.in_feature = "p5"
         self._image_dim = image_dim
