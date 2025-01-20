@@ -25,6 +25,7 @@ from detectron2.data import (
     MetadataCatalog,
     build_detection_test_loader,
     build_detection_train_loader,
+    DatasetMapper,
 )
 from detectron2.evaluation import (
     DatasetEvaluator,
@@ -381,6 +382,17 @@ class DefaultTrainer(SimpleTrainer):
         # Do evaluation after checkpointer, because then if it fails,
         # we can use the saved checkpoint to debug.
         ret.append(hooks.EvalHook(cfg.TEST.EVAL_PERIOD, test_and_save_results))
+
+        ret.append(hooks.LossEvalHook(
+            cfg.TEST.EVAL_PERIOD, 
+            self.model,
+            build_detection_test_loader(
+                self.cfg,
+                self.cfg.DATASETS.TEST[0],
+                DatasetMapper(self.cfg, True)   # is_train est true la ??? TODO : Vérifer la valeur qu'il devrait prendre
+            ),
+            is_stack=cfg.DATALOADER.IS_STACK, 
+        ))
 
         if comm.is_main_process():
             # run writers in the end, so that evaluation metrics are written

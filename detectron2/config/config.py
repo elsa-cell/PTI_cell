@@ -117,10 +117,6 @@ def get_stack_cell_config(cfg) -> CfgNode:
     cfg.DATALOADER.NUM_WORKERS = 1  #max 2 recommended
     cfg.DATALOADER.ASPECT_RATIO_GROUPING = False
 
-
-    #cfg.MODEL.META_ARCHITECTURE = "GeneralizedRCNN_Z"
-    #cfg.MODEL.SEPARATOR.NAME = "SharedConvSeparator"
-
     #Remove all online augmentations
     cfg.INPUT.HFLIP_TRAIN = False
     cfg.INPUT.CROP.ENABLED = False

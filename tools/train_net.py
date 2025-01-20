@@ -166,10 +166,9 @@ def main(args):
         DatasetCatalog.register('val', lambda: get_dicts(args.data_dir, 'val', args.cross_val, classes))
         # Set the metadata for the dataset.
         MetadataCatalog.get('train').set(thing_classes=list(classes.keys()))
-        MetadataCatalog.get('val').set(thing_classes=list(classes.keys()))
+        MetadataCatalog.get('val').set(thing_classes=list(classes.keys()), evaluator_type="coco")
     
     if args.eval_only:
-        MetadataCatalog.get('val').set(evaluator_type="coco")
         model = Trainer.build_model(cfg)
         DetectionCheckpointer(model, save_dir=cfg.OUTPUT_DIR).resume_or_load(
             cfg.MODEL.WEIGHTS, resume=args.resume

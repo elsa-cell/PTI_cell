@@ -14,6 +14,12 @@ from fvcore.common.file_io import PathManager
 from fvcore.common.timer import Timer
 from fvcore.nn.precise_bn import get_bn_modules, update_bn_stats
 
+
+from detectron2.evaluation import inference_context
+from detectron2.utils.logger import log_every_n_seconds
+from detectron2.data import DatasetMapper, build_detection_test_loader
+import numpy as np
+
 import detectron2.utils.comm as comm
 from detectron2.evaluation.testing import flatten_results_dict
 from detectron2.utils.events import EventStorage, EventWriter
@@ -28,6 +34,7 @@ __all__ = [
     "LRScheduler",
     "AutogradProfiler",
     "EvalHook",
+    "LossEvalHook",
     "PreciseBN",
 ]
 
@@ -352,6 +359,109 @@ class EvalHook(HookBase):
         # func is likely a closure that holds reference to the trainer
         # therefore we clean it to avoid circular reference in the end
         del self._func
+
+
+# Inspired by https://gist.github.com/ortegatron/c0dad15e49c2b74de8bb09a5615d9f6b
+# From https://eidos-ai.medium.com/training-on-detectron2-with-a-validation-set-and-plot-loss-on-it-to-avoid-overfitting-6449418fbf4e
+# Modified to have all the losses, with the keyword validation_ added at the begining of the key of the dictionnaries
+# Written in the storage : can be visualised with tensorboard, and plotted if needed
+# Write in storage function inspired by def _write_metrics(self, metrics_dict: dict): in train_loop of SimpleTrainer
+class LossEvalHook(HookBase):
+    def __init__(self, eval_period, model, data_loader, is_stack):
+        self._model = model
+        self._period = eval_period
+        self._data_loader = data_loader
+        self._is_stack = is_stack
+    
+    def _do_loss_eval(self):
+        # Copying inference_on_dataset from evaluator.py
+        total = len(self._data_loader)
+        num_warmup = min(5, total - 1)
+            
+        start_time = time.perf_counter()
+        total_compute_time = 0
+        losses_dicts = []
+        for idx, inputs in enumerate(self._data_loader):            
+            if idx == num_warmup:
+                start_time = time.perf_counter()
+                total_compute_time = 0
+            start_compute_time = time.perf_counter()
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            total_compute_time += time.perf_counter() - start_compute_time
+            iters_after_start = idx + 1 - num_warmup * int(idx >= num_warmup)
+            seconds_per_img = total_compute_time / iters_after_start
+            if idx >= num_warmup * 2 or seconds_per_img > 5:
+                total_seconds_per_img = (time.perf_counter() - start_time) / iters_after_start
+                eta = datetime.timedelta(seconds=int(total_seconds_per_img * (total - idx - 1)))
+                log_every_n_seconds(
+                    logging.INFO,
+                    "Loss on Validation  done {}/{}. {:.4f} s / img. ETA={}".format(
+                        idx + 1, total, seconds_per_img, str(eta)
+                    ),
+                    n=5,
+                )
+            # Récupère toutes les loss d'un certain batch
+            loss_batch = self._get_loss(inputs)
+            losses_dicts.append(loss_batch)
+        # Faire la moyenne des losses. Attention chaque indice est un dictionnaire
+        #mean_loss_dict = np.mean(losses)
+        mean_loss_dict = {key: 0 for key in losses_dicts[0].keys()}
+        n = len(mean_loss_dict)
+        for losses_dic in losses_dicts:
+            for key, value in losses_dic.items():
+                mean_loss_dict[key] += value
+        mean_loss_dict = {key: total / n for key, total in mean_loss_dict.items()}
+
+        # Enregistre les loss dans le storage
+        #self.trainer.storage.put_scalar('validation_loss', mean_loss)
+        self._write_validation_metrics(mean_loss_dict)
+        comm.synchronize()
+    
+    def _write_validation_metrics(self, metrics_dict: dict):
+        """
+        Args:
+            metrics_dict (dict): dict of scalar metrics
+        """
+        metrics_dict = {
+            k: v.detach().cpu().item() if isinstance(v, torch.Tensor) else float(v)
+            for k, v in metrics_dict.items()
+        }
+
+        val_metrics_dict = {f"validation_{key}": value for key, value in metrics_dict.items()}
+        # gather metrics among all workers for logging
+        # This assumes we do DDP-style training, which is currently the only
+        # supported method in detectron2.
+        all_metrics_dict = comm.gather(val_metrics_dict)
+
+        if comm.is_main_process():
+            if "validation_data_time" in all_metrics_dict[0]:
+                # data_time among workers can have high variance. The actual latency
+                # caused by data_time is the maximum among workers.
+                data_time = np.max([x.pop("validation_data_time") for x in all_metrics_dict])
+                self.storage.put_scalar("validation_data_time", data_time)
+
+            # average the rest metrics
+            metrics_dict = {
+                k: np.mean([x[k] for x in all_metrics_dict]) for k in all_metrics_dict[0].keys()
+            }
+            total_losses_reduced = sum(loss for loss in metrics_dict.values())
+
+            self.storage.put_scalar("validation_total_loss", total_losses_reduced)
+            if len(metrics_dict) > 1:
+                self.storage.put_scalars(**val_metrics_dict)
+            
+    def _get_loss(self, data):
+        # How loss is calculated on train_loop 
+        metrics_dict = self._model(data)
+        return metrics_dict
+        
+        
+    def after_step(self):
+        next_iter = self.trainer.iter + 1
+        is_final = next_iter == self.trainer.max_iter
+        if is_final or (self._period > 0 and next_iter % self._period == 0):
+                self._do_loss_eval()
 
 
 class PreciseBN(HookBase):
