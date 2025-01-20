@@ -4,17 +4,17 @@ MODEL:
   MASK_ON: True
   RESNETS:
     DEPTH: 50
-    NORM: "SyncBN"
+    NORM: "SyncBN2d"
     STRIDE_IN_1X1: True
   FPN:
-    NORM: "SyncBN"
+    NORM: "SyncBN2d"
   ROI_BOX_HEAD:
     NAME: "FastRCNNConvFCHead"
     NUM_CONV: 4
     NUM_FC: 1
-    NORM: "SyncBN"
+    NORM: "SyncBN2d"
   ROI_MASK_HEAD:
-    NORM: "SyncBN"
+    NORM: "SyncBN2d"
 SOLVER:
   # 3x schedule
   STEPS: (210000, 250000)

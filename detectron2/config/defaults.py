@@ -328,7 +328,7 @@ _C.MODEL.ROI_BOX_HEAD.NUM_CONV = 0
 # Channel dimension for Conv layers in the RoI box head
 _C.MODEL.ROI_BOX_HEAD.CONV_DIM = 256
 # Normalization method for the convolution layers.
-# Options: "" (no norm), "GN", "SyncBN".
+# Options: "" (no norm), "GN", "SyncBN2d".
 _C.MODEL.ROI_BOX_HEAD.NORM = ""
 # Whether to use class agnostic for bbox regression
 _C.MODEL.ROI_BOX_HEAD.CLS_AGNOSTIC_BBOX_REG = False
@@ -358,7 +358,7 @@ _C.MODEL.ROI_MASK_HEAD.POOLER_SAMPLING_RATIO = 0
 _C.MODEL.ROI_MASK_HEAD.NUM_CONV = 0  # The number of convs in the mask head
 _C.MODEL.ROI_MASK_HEAD.CONV_DIM = 256
 # Normalization method for the convolution layers.
-# Options: "" (no norm), "GN", "SyncBN".
+# Options: "" (no norm), "GN", "SyncBN2d".
 _C.MODEL.ROI_MASK_HEAD.NORM = ""
 # Whether to use class agnostic for mask prediction
 _C.MODEL.ROI_MASK_HEAD.CLS_AGNOSTIC_MASK = False
@@ -485,7 +485,7 @@ _C.MODEL.RESNETS.OUT_FEATURES = ["res4"]  # res4 for C4 backbone, res2..5 for FP
 # Number of groups to use; 1 ==> ResNet; > 1 ==> ResNeXt
 _C.MODEL.RESNETS.NUM_GROUPS = 1
 
-# Options: FrozenBN, GN, "SyncBN", "BN2d"
+# Options: FrozenBN, GN, "SyncBN2d", "BN2d"
 _C.MODEL.RESNETS.NORM = "FrozenBN"
 
 # Baseline width of each group.

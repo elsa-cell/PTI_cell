@@ -99,7 +99,7 @@ def build_optimizer(cfg: CfgNode, model: torch.nn.Module) -> torch.optim.Optimiz
         torch.nn.BatchNorm2d,
         torch.nn.BatchNorm3d,
         torch.nn.SyncBatchNorm,
-        # NaiveSyncBatchNorm inherits from BatchNorm2d
+        # NaiveSyncBatchNorm2d inherits from BatchNorm2d
         torch.nn.GroupNorm,
         torch.nn.InstanceNorm1d,
         torch.nn.InstanceNorm2d,
