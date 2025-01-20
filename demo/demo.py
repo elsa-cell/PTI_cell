@@ -51,7 +51,7 @@ def get_parser():
         help="A list of space separated input images; "
         "or a single glob pattern such as 'directory/*.jpg'"
         "For a stack, only specify the path up to the stack separator"
-        "cfg.INPUT.STACK_SEPARATOR + str(z) + cfg.INPUT.EXTENSION"
+        "cfg.INPUT.SLICE_SEPARATOR + str(z) + cfg.INPUT.EXTENSION"
         "will automatically be added to the path"
     )
     parser.add_argument(
@@ -107,7 +107,7 @@ if __name__ == "__main__":
             for input in tqdm.tqdm(args.input, disable=not args.output):
                 stack = [None] * cfg.INPUT.STACK_SIZE
                 for z in range(cfg.INPUT.STACK_SIZE):
-                    path = os.path.expanduser(input + cfg.INPUT.STACK_SEPARATOR + str(z) + cfg.INPUT.EXTENSION)
+                    path = os.path.expanduser(input + cfg.INPUT.SLICE_SEPARATOR + str(z) + cfg.INPUT.EXTENSION)
                     assert path, "The input path(s) was not found"
                     # use PIL, to be consistent with evaluation
                     stack[z] = read_image(path, format="BGR")
@@ -129,7 +129,7 @@ if __name__ == "__main__":
                     if os.path.isdir(args.output):
                         stack_name = os.path.basename(input)
                         for z in range(cfg.INPUT.STACK_SIZE):
-                            out_filename = os.path.join(args.output, stack_name + cfg.INPUT.STACK_SEPARATOR + str(z) + cfg.INPUT.EXTENSION)
+                            out_filename = os.path.join(args.output, stack_name + cfg.INPUT.SLICE_SEPARATOR + str(z) + cfg.INPUT.EXTENSION)
                             visualized_output[z].save(out_filename)
                     else:
                         logger.info("Please specify a directory with args.output")

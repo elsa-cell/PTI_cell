@@ -128,6 +128,7 @@ def setup(args):
     if args.classes_dict:
         cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(eval(args.classes_dict))
     
+    cfg.MODEL.RESNETS.DEPTH = 18                                 # Configuration of the depth of the resnet network, default to 50, for lighter models, use 18
     cfg.MODEL.BACKBONE.FREEZE_AT = 0
     cfg.MODEL.WEIGHTS = ""
     '''
@@ -136,16 +137,19 @@ def setup(args):
     '''
 
     # SOLVER
-    cfg.SOLVER.IMS_PER_BATCH = 4
+    cfg.SOLVER.IMS_PER_BATCH = 24          # Attention à la taille de la mémoire dont dispose la GPU, doit aussi être un multiple du nombre de GPU
     cfg.SOLVER.MAX_ITER = 10000
-    cfg.SOLVER.CHECKPOINT_PERIOD = 1000
+    cfg.SOLVER.CHECKPOINT_PERIOD = cfg.SOLVER.MAX_ITER // 20
     cfg.SOLVER.BASE_LR = 0.001
-    # cfg.SOLVER.REFERENCE_WORLD_SIZE = 0
+    cfg.SOLVER.REFERENCE_WORLD_SIZE = args.num_gpus
+    cfg.MODEL.USE_AMP = False
 
     cfg.merge_from_list(args.opts)
     
     cfg.MODEL.RESNETS.RES2_OUT_CHANNELS = {18:64, 32:64, 50:256, 101:256, 152:256}[cfg.MODEL.RESNETS.DEPTH]
-    
+    if (cfg.SOLVER.IMS_PER_BATCH % args.num_gpus != 0):    # Pour être sûr d'être divisible par le nombre de GPU
+        cfg.SOLVER.IMS_PER_BATCH = (cfg.SOLVER.IMS_PER_BATCH // args.num_gpus) * args.num_gpus
+        
     cfg.freeze()
     default_setup(cfg, args)
     return cfg
@@ -165,6 +169,7 @@ def main(args):
         MetadataCatalog.get('val').set(thing_classes=list(classes.keys()))
     
     if args.eval_only:
+        MetadataCatalog.get('val').set(evaluator_type="coco")
         model = Trainer.build_model(cfg)
         DetectionCheckpointer(model, save_dir=cfg.OUTPUT_DIR).resume_or_load(
             cfg.MODEL.WEIGHTS, resume=args.resume

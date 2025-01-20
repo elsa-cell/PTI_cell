@@ -45,7 +45,7 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
         self._image_dim = cfg.BACKBONE.IMAGE_DIM
         if self._image_dim == 2:
             input_shape = ShapeSpec(channels = cfg.INPUT.STACK_SIZE * len(cfg.MODEL.PIXEL_MEAN))
-        else:
+        elif self._image_dim == 3:
             input_shape = ShapeSpec(stack_size=cfg.INPUT.STACK_SIZE, channels=len(cfg.MODEL.PIXEL_MEAN))
 
 
@@ -68,9 +68,8 @@ class GeneralizedRCNN_Z(GeneralizedRCNN):
         self.pixel_mean = self.pixel_mean.to(self.device)
         self.pixel_std  = self.pixel_std.to(self.device)
 
-
         self.separator = build_separator(cfg, self.backbone.output_shape())
-        self._stack_size = cfg.INPUT.STACK_SIZE
+        self._stack_size = cfg.INPUT.STACK_SIZE        
         
 
     def forward(self, batched_inputs):

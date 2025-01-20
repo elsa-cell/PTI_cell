@@ -282,6 +282,21 @@ else:
             output_shape = x.shape
             return _NewEmptyTensorOp.apply(x, output_shape)
 
+if TORCH_VERSION > (1, 4):
+    BatchNorm3d = torch.nn.BatchNorm3d
+else:
+
+    class BatchNorm3d(torch.nn.BatchNorm3d):
+        """
+        A wrapper around :class:`torch.nn.BatchNorm3d` to support zero-size tensor.
+        """
+
+        def forward(self, x):
+            if x.numel() > 0:
+                return super(BatchNorm3d, self).forward(x)
+            # get output shape
+            output_shape = x.shape
+            return _NewEmptyTensorOp.apply(x, output_shape)
 
 if TORCH_VERSION > (1, 4):
     BatchNorm3d = torch.nn.BatchNorm3d

@@ -20,7 +20,7 @@ class FrozenBatchNorm(nn.Module):
     initialized to perform identity transformation.
 
     The pre-trained backbone models from Caffe2 only contain "weight" and "bias",
-    which are computed from the original four parameters of BN.
+    which are computed from the original four parameters of BN2d.
     The affine transform `x * weight + bias` will perform the equivalent
     computation of `(x - running_mean) / sqrt(running_var) * weight + bias`.
     When loading a backbone model from Caffe2, "running_mean" and "running_var"
@@ -48,7 +48,7 @@ class FrozenBatchNorm(nn.Module):
             # because its backward op computes gradients for weight/bias as well.
             scale = self.weight * (self.running_var + self.eps).rsqrt()
             bias = self.bias - self.running_mean * scale
-            image_dim = x.dim() - 2
+            image_dim = x.dim() - 2     # We remove the dimensions from the batch_size and the channels
             shape = {
                 2: (1, -1, 1, 1),
                 3: (1, -1, 1, 1, 1),
@@ -132,7 +132,7 @@ class FrozenBatchNorm(nn.Module):
 def get_norm(norm, out_channels):
     """
     Args:
-        norm (str or callable): either one of BN, SyncBN, FrozenBN, GN;
+        norm (str or callable): either one of BN2d, SyncBN2d, FrozenBN, GN;
             or a callable that takes a channel number and returns
             the normalization layer as a nn.Module.
 

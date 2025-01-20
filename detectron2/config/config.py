@@ -111,7 +111,7 @@ def get_stack_cell_config(cfg) -> CfgNode:
     cfg.DATALOADER.IS_STACK = True
     cfg.INPUT.STACK_SIZE = 11
     cfg.INPUT.EXTENSION = ".png"
-    cfg.INPUT.STACK_SEPARATOR = "F"
+    cfg.INPUT.SLICE_SEPARATOR = "F"
 
     # DATALOADER
     cfg.DATALOADER.NUM_WORKERS = 1  #max 2 recommended

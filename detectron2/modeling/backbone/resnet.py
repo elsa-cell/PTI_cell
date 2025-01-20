@@ -229,8 +229,8 @@ class BottleneckBlock(CNNBlockBase):
         # so that at the beginning, the residual branch starts with zeros,
         # and each residual block behaves like an identity.
         # See Sec 5.1 in "Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour":
-        # "For BN layers, the learnable scaling coefficient γ is initialized
-        # to be 1, except for each residual block's last BN
+        # "For BN2d layers, the learnable scaling coefficient γ is initialized
+        # to be 1, except for each residual block's last BN2d
         # where γ is initialized to be 0."
 
         # nn.init.constant_(self.conv3.norm.weight, 0)

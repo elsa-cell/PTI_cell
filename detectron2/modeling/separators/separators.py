@@ -93,7 +93,6 @@ class SharedConvSeparator(nn.Module):
         return [dict(zip(self._out_features, z_results[z])) for z in range(self._stack_size)] #inspired by detectron2 fpn.py
     
 
-
 @SEPARATOR_REGISTRY.register()
 class From3dTo2d(nn.Module):
     def __init__(self, cfg, input_shape: Dict[str, ShapeSpec]):
