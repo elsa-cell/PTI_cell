@@ -138,11 +138,13 @@ def setup(args):
 
     # SOLVER
     cfg.SOLVER.IMS_PER_BATCH = 24          # Attention à la taille de la mémoire dont dispose la GPU, doit aussi être un multiple du nombre de GPU
-    cfg.SOLVER.MAX_ITER = 10000
+    cfg.SOLVER.MAX_ITER = 100
     cfg.SOLVER.CHECKPOINT_PERIOD = cfg.SOLVER.MAX_ITER // 20
     cfg.SOLVER.BASE_LR = 0.001
     cfg.SOLVER.REFERENCE_WORLD_SIZE = args.num_gpus
     cfg.MODEL.USE_AMP = False
+    cfg.TEST.EVAL_PERIOD = cfg.SOLVER.CHECKPOINT_PERIOD // 2
+    cfg.TEST.COMPUTE_LOSSES = False
 
     cfg.merge_from_list(args.opts)
     
@@ -198,7 +200,7 @@ def main(args):
 if __name__ == "__main__":
     args = default_argument_parser()
 
-    args.add_argument('--default_cell_stack', default=True)
+    args.add_argument('--default-cell-stack', default=True)
     args.add_argument('--data-dir', default='/projects/INSA-Image/B01/Data/')
     args.add_argument('--classes-dict',type=str,default="{'Intact_Sharp':0, 'Broken_Sharp':2}")
     #Classes are like "{'Intact_Sharp':0,'Intact_Blurry':1,'Broken_Sharp':2,'Broken_Blurry':3}"

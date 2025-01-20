@@ -590,6 +590,7 @@ _C.TEST.EXPECTED_RESULTS = []
 # The period (in terms of steps) to evaluate the model during training.
 # Set to 0 to disable.
 _C.TEST.EVAL_PERIOD = 0
+_C.TEST.COMPUTE_LOSSES = False
 # The sigmas used to calculate keypoint OKS. See http://cocodataset.org/#keypoints-eval
 # When empty, it will use the defaults in COCO.
 # Otherwise it should be a list[float] with the same length as ROI_KEYPOINT_HEAD.NUM_KEYPOINTS.

@@ -104,8 +104,7 @@ def get_stack_cell_config(cfg) -> CfgNode:
 
     # DATASETS
     cfg.DATASETS.TRAIN = ("train",)
-    cfg.DATASETS.VAL = ("val",)
-    cfg.DATASETS.TEST = ('test',)
+    cfg.DATASETS.TEST = ('val',)        # Attention, DATASETS.TEST sert à faire la validation et non le test
 
     # STACK
     cfg.DATALOADER.IS_STACK = True
