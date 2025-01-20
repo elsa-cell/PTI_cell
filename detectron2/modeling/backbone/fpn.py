@@ -197,9 +197,9 @@ class LastLevelMaxPool(nn.Module):
 
     def forward(self, x):
         if self._image_dim == 2:
-            x = F.max_pool2d(x, kernel_size=1, stride=2, padding=0)
+            x = [F.max_pool2d(x, kernel_size=1, stride=2, padding=0)]
         elif self._image_dim == 3:
-            x = F.max_pool3d(x, kernel_size=1, stride=(1, 2, 2), padding=0)
+            x = [F.max_pool3d(x, kernel_size=1, stride=(1, 2, 2), padding=0)]
         return x
 
 
