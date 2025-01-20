@@ -35,7 +35,7 @@ class BasicBlock(CNNBlockBase):
     with two 3x3 conv layers and a projection shortcut if needed.
     """
 
-    def __init__(self, in_channels, out_channels, *, stride=1, norm="BN"):
+    def __init__(self, in_channels, out_channels, *, stride=1, norm="BN2d"):
         """
         Args:
             in_channels (int): Number of input channels.
@@ -112,7 +112,7 @@ class BottleneckBlock(CNNBlockBase):
         bottleneck_channels,
         stride=1,
         num_groups=1,
-        norm="BN",
+        norm="BN2d",
         stride_in_1x1=False,
         dilation=1,
     ):
@@ -183,8 +183,8 @@ class BottleneckBlock(CNNBlockBase):
         # so that at the beginning, the residual branch starts with zeros,
         # and each residual block behaves like an identity.
         # See Sec 5.1 in "Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour":
-        # "For BN layers, the learnable scaling coefficient γ is initialized
-        # to be 1, except for each residual block's last BN
+        # "For BN2d layers, the learnable scaling coefficient γ is initialized
+        # to be 1, except for each residual block's last BN2d
         # where γ is initialized to be 0."
 
         # nn.init.constant_(self.conv3.norm.weight, 0)
@@ -224,7 +224,7 @@ class DeformBottleneckBlock(CNNBlockBase):
         bottleneck_channels,
         stride=1,
         num_groups=1,
-        norm="BN",
+        norm="BN2d",
         stride_in_1x1=False,
         dilation=1,
         deform_modulated=False,
@@ -332,7 +332,7 @@ class BasicStem(CNNBlockBase):
     The standard ResNet stem (layers before the first residual block).
     """
 
-    def __init__(self, in_channels=3, out_channels=64, norm="BN"):
+    def __init__(self, in_channels=3, out_channels=64, norm="BN2d"):
         """
         Args:
             norm (str or callable): norm after the first conv layer.

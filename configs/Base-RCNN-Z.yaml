@@ -5,7 +5,7 @@ MODEL:
     IMAGE_DIM: 2
   RESNETS:
     OUT_FEATURES: ["res2", "res3", "res4", "res5"]
-    NORM: "BN"
+    NORM: "BN2d"
   FPN:
     IN_FEATURES: ["res2", "res3", "res4", "res5"]
   ANCHOR_GENERATOR:

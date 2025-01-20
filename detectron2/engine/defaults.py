@@ -343,7 +343,7 @@ class DefaultTrainer(SimpleTrainer):
     def build_hooks(self):
         """
         Build a list of default hooks, including timing, evaluation,
-        checkpointing, lr scheduling, precise BN, writing events.
+        checkpointing, lr scheduling, precise BN2d, writing events.
 
         Returns:
             list[HookBase]:

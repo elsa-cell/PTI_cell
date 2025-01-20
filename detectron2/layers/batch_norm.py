@@ -11,16 +11,16 @@ from detectron2.utils import comm, env
 from .wrappers import BatchNorm2d
 
 
-class FrozenBatchNorm2d(nn.Module):
+class FrozenBatchNorm(nn.Module):
     """
-    BatchNorm2d where the batch statistics and the affine parameters are fixed.
+    BatchNorm2d/3d where the batch statistics and the affine parameters are fixed.
 
     It contains non-trainable buffers called
     "weight" and "bias", "running_mean", "running_var",
     initialized to perform identity transformation.
 
     The pre-trained backbone models from Caffe2 only contain "weight" and "bias",
-    which are computed from the original four parameters of BN.
+    which are computed from the original four parameters of BN2d.
     The affine transform `x * weight + bias` will perform the equivalent
     computation of `(x - running_mean) / sqrt(running_var) * weight + bias`.
     When loading a backbone model from Caffe2, "running_mean" and "running_var"
@@ -88,7 +88,7 @@ class FrozenBatchNorm2d(nn.Module):
         )
 
     def __repr__(self):
-        return "FrozenBatchNorm2d(num_features={}, eps={})".format(self.num_features, self.eps)
+        return "FrozenBatchNorm(num_features={}, eps={})".format(self.num_features, self.eps)
 
     @classmethod
     def convert_frozen_batchnorm(cls, module):
@@ -127,7 +127,7 @@ class FrozenBatchNorm2d(nn.Module):
 def get_norm(norm, out_channels):
     """
     Args:
-        norm (str or callable): either one of BN, SyncBN, FrozenBN, GN;
+        norm (str or callable): either one of BN2d, SyncBN, FrozenBN, GN;
             or a callable that takes a channel number and returns
             the normalization layer as a nn.Module.
 
@@ -138,10 +138,10 @@ def get_norm(norm, out_channels):
         if len(norm) == 0:
             return None
         norm = {
-            "BN": BatchNorm2d,
+            "BN2d": BatchNorm2d,
             # Fixed in https://github.com/pytorch/pytorch/pull/36382
             "SyncBN": NaiveSyncBatchNorm if env.TORCH_VERSION <= (1, 5) else nn.SyncBatchNorm,
-            "FrozenBN": FrozenBatchNorm2d,
+            "FrozenBN": FrozenBatchNorm,
             "GN": lambda channels: nn.GroupNorm(32, channels),
             # for debugging:
             "nnSyncBN": nn.SyncBatchNorm,

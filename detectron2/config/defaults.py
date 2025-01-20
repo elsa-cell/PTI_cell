@@ -168,6 +168,7 @@ _C.MODEL.FPN.FUSE_TYPE = "sum"
 # Separator options
 # ---------------------------------------------------------------------------- #
 _C.MODEL.SEPARATOR = CN()
+# Can be From3dTo2d, SharedConvSeparator
 _C.MODEL.SEPARATOR.NAME = "SharedConvSeparator"
 
 # ---------------------------------------------------------------------------- #
@@ -484,7 +485,7 @@ _C.MODEL.RESNETS.OUT_FEATURES = ["res4"]  # res4 for C4 backbone, res2..5 for FP
 # Number of groups to use; 1 ==> ResNet; > 1 ==> ResNeXt
 _C.MODEL.RESNETS.NUM_GROUPS = 1
 
-# Options: FrozenBN, GN, "SyncBN", "BN"
+# Options: FrozenBN, GN, "SyncBN", "BN2d"
 _C.MODEL.RESNETS.NORM = "FrozenBN"
 
 # Baseline width of each group.
