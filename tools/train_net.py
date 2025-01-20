@@ -138,12 +138,13 @@ def setup(args):
 
     # SOLVER
     cfg.SOLVER.IMS_PER_BATCH = 24          # Attention à la taille de la mémoire dont dispose la GPU, doit aussi être un multiple du nombre de GPU
-    cfg.SOLVER.MAX_ITER = 100
+    cfg.SOLVER.MAX_ITER = 10000
     cfg.SOLVER.CHECKPOINT_PERIOD = cfg.SOLVER.MAX_ITER // 20
     cfg.SOLVER.BASE_LR = 0.001
     cfg.SOLVER.REFERENCE_WORLD_SIZE = args.num_gpus
     cfg.MODEL.USE_AMP = False
-    cfg.TEST.EVAL_PERIOD = cfg.SOLVER.CHECKPOINT_PERIOD // 2
+    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7  # Seuil de détection : Seulement les détections avec score > 0.5
+    cfg.TEST.EVAL_PERIOD = cfg.SOLVER.CHECKPOINT_PERIOD
     cfg.TEST.COMPUTE_LOSSES = False
 
     cfg.merge_from_list(args.opts)
