@@ -389,7 +389,7 @@ class DefaultTrainer(SimpleTrainer):
             build_detection_test_loader(
                 self.cfg,
                 self.cfg.DATASETS.TEST[0],
-                DatasetMapper(self.cfg, True)   # is_train est true la ??? TODO : Vérifer la valeur qu'il devrait prendre
+                DatasetMapper(self.cfg, True)
             ),
             is_stack=cfg.DATALOADER.IS_STACK, 
         ))

@@ -128,7 +128,7 @@ def setup(args):
     if args.classes_dict:
         cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(eval(args.classes_dict))
     
-    cfg.MODEL.RESNETS.DEPTH = 18                                 # Configuration of the depth of the resnet network, default to 50, for lighter models, use 18
+    cfg.MODEL.RESNETS.DEPTH = 50                                 # Configuration of the depth of the resnet network, default to 50, for lighter models, use 18
     cfg.MODEL.BACKBONE.FREEZE_AT = 0
     cfg.MODEL.WEIGHTS = ""
     '''
@@ -137,7 +137,7 @@ def setup(args):
     '''
 
     # SOLVER
-    cfg.SOLVER.IMS_PER_BATCH = 24          # Attention à la taille de la mémoire dont dispose la GPU, doit aussi être un multiple du nombre de GPU
+    cfg.SOLVER.IMS_PER_BATCH = 4          # Attention à la taille de la mémoire dont dispose la GPU, doit aussi être un multiple du nombre de GPU
     cfg.SOLVER.MAX_ITER = 10000
     cfg.SOLVER.CHECKPOINT_PERIOD = cfg.SOLVER.MAX_ITER // 20
     cfg.SOLVER.BASE_LR = 0.001
