@@ -143,6 +143,9 @@ def setup(args):
     cfg.SOLVER.BASE_LR = 0.001
     cfg.SOLVER.REFERENCE_WORLD_SIZE = args.num_gpus
     cfg.MODEL.USE_AMP = False
+    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7  # Seuil de détection : Seulement les détections avec score > 0.5
+    cfg.TEST.EVAL_PERIOD = cfg.SOLVER.CHECKPOINT_PERIOD
+    cfg.TEST.COMPUTE_LOSSES = False
 
     cfg.merge_from_list(args.opts)
     
@@ -198,7 +201,7 @@ def main(args):
 if __name__ == "__main__":
     args = default_argument_parser()
 
-    args.add_argument('--default_cell_stack', default=True)
+    args.add_argument('--default-cell-stack', default=True)
     args.add_argument('--data-dir', default='/projects/INSA-Image/B01/Data/')
     args.add_argument('--classes-dict',type=str,default="{'Intact_Sharp':0, 'Broken_Sharp':2}")
     #Classes are like "{'Intact_Sharp':0,'Intact_Blurry':1,'Broken_Sharp':2,'Broken_Blurry':3}"

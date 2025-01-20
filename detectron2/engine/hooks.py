@@ -380,7 +380,8 @@ class LossEvalHook(HookBase):
             
         start_time = time.perf_counter()
         total_compute_time = 0
-        losses_dicts = []
+        mean_loss_dict = {}
+        n_batchs = 1
         for idx, inputs in enumerate(self._data_loader):            
             if idx == num_warmup:
                 start_time = time.perf_counter()
@@ -403,15 +404,16 @@ class LossEvalHook(HookBase):
                 )
             # Récupère toutes les loss d'un certain batch
             loss_batch = self._get_loss(inputs)
-            losses_dicts.append(loss_batch)
+            if len(mean_loss_dict) > 0:
+                for key, value in loss_batch.items():
+                    mean_loss_dict[key] += value 
+            else:
+                mean_loss_dict = loss_batch.copy()
+            #losses_dicts.append(loss_batch)
+            n_batchs = idx + 1
         # Faire la moyenne des losses. Attention chaque indice est un dictionnaire
         #mean_loss_dict = np.mean(losses)
-        mean_loss_dict = {key: 0 for key in losses_dicts[0].keys()}
-        n = len(mean_loss_dict)
-        for losses_dic in losses_dicts:
-            for key, value in losses_dic.items():
-                mean_loss_dict[key] += value
-        mean_loss_dict = {key: total / n for key, total in mean_loss_dict.items()}
+        mean_loss_dict = {key: total / n_batchs for key, total in mean_loss_dict.items()}
 
         # Enregistre les loss dans le storage
         #self.trainer.storage.put_scalar('validation_loss', mean_loss)

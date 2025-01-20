@@ -383,16 +383,17 @@ class DefaultTrainer(SimpleTrainer):
         # we can use the saved checkpoint to debug.
         ret.append(hooks.EvalHook(cfg.TEST.EVAL_PERIOD, test_and_save_results))
 
-        ret.append(hooks.LossEvalHook(
-            cfg.TEST.EVAL_PERIOD, 
-            self.model,
-            build_detection_test_loader(
-                self.cfg,
-                self.cfg.DATASETS.TEST[0],
-                DatasetMapper(self.cfg, True)
-            ),
-            is_stack=cfg.DATALOADER.IS_STACK, 
-        ))
+        if cfg.TEST.COMPUTE_LOSSES:
+            ret.append(hooks.LossEvalHook(
+                cfg.TEST.EVAL_PERIOD, 
+                self.model,
+                build_detection_test_loader(
+                    self.cfg,
+                    self.cfg.DATASETS.TEST[0],
+                    DatasetMapper(self.cfg, True)
+                ),
+                is_stack=cfg.DATALOADER.IS_STACK, 
+            ))
 
         if comm.is_main_process():
             # run writers in the end, so that evaluation metrics are written
