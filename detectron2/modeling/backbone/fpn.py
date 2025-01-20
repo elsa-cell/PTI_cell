@@ -4,11 +4,12 @@ import fvcore.nn.weight_init as weight_init
 import torch.nn.functional as F
 from torch import nn
 
-from detectron2.layers import Conv2d, ShapeSpec, get_norm
+from detectron2.layers import Conv2d, Conv3d, ConvP3d, ShapeSpec, get_norm
 
 from .backbone import Backbone
 from .build import BACKBONE_REGISTRY
 from .resnet import build_resnet_backbone
+from detectron2.modeling.weight_init import init_module
 
 __all__ = ["build_resnet_fpn_backbone", "build_retinanet_resnet_fpn_backbone", "FPN"]
 
@@ -190,7 +191,7 @@ class LastLevelP6P7(nn.Module):
         self.p6 = nn.Conv2d(in_channels, out_channels, 3, 2, 1)
         self.p7 = nn.Conv2d(out_channels, out_channels, 3, 2, 1)
         for module in [self.p6, self.p7]:
-            weight_init.c2_xavier_fill(module)
+            init_module(module, weight_init.c2_xavier_fill)
 
     def forward(self, c5):
         p6 = self.p6(c5)

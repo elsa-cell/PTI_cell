@@ -91,3 +91,21 @@ class SharedConvSeparator(nn.Module):
             assert len(self._out_features) == len(z_results[z])
 
         return [dict(zip(self._out_features, z_results[z])) for z in range(self._stack_size)] #inspired by detectron2 fpn.py
+
+
+
+@SEPARATOR_REGISTRY.register()
+class From3dTo2d(nn.Module):
+    def __init__(self, cfg, input_shape: Dict[str, ShapeSpec]):
+        super().__init__()
+        self._stack_size = cfg.INPUT.STACK_SIZE
+        self.in_features = list(input_shape.keys())
+        self._out_features = self.in_features
+
+    def forward(self, features):
+        z_results = [[None] * len(self.in_features) for z in range(self._stack_size)]
+        for i, f in enumerate(self.in_features):
+            for z in range(self._stack_size):
+                z_results[z][i] = features[f][:, :, z, :, :]
+
+        return [dict(zip(self._out_features, z_results[z])) for z in range(self._stack_size)] #inspired by detectron2 fpn.py
