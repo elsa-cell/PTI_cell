@@ -27,7 +27,9 @@ from detectron2.evaluation import (
 )
 from detectron2.modeling import GeneralizedRCNNWithTTA
 from detectron2.data.datasets import get_dicts
+from detectron2.utils.logger import setup_logger
 
+logger = logging.getLogger(__name__)
 
 class CustomValidationTrainer(DefaultTrainer):
     """
@@ -107,6 +109,8 @@ def setup(args):
     """
     Create configs and perform basic setups.
     """
+    setup_logger(name=__name__)
+    
     cfg = get_cfg()
     cfg.merge_from_file(os.path.join(args.weight_dir_path, "config.yaml"))
 
@@ -114,21 +118,28 @@ def setup(args):
 
     #cfg.SOLVER.IMS_PER_BATCH = 4          # Attention à la taille de la mémoire dont dispose la GPU, doit aussi être un multiple du nombre de GPU
     #cfg.SOLVER.REFERENCE_WORLD_SIZE = args.num_gpus
-    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7  # Seuil de détection : Seulement les détections avec score > 0.5
-    cfg.TEST.COMPUTE_LOSSES = False
+    #cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7  # Seuil de détection : Seulement les détections avec score > 0.5
+    #cfg.TEST.COMPUTE_LOSSES = False
 
-    cfg.merge_from_list([arg for arg in args if args.startswith("SOLVER.IMS_PER_BATCH") or args.startswith("MODEL.ROI_HEADS.SCORE_THRESH_TEST") or args.startswith("TEST.COMPUTE_LOSSES")])
+    if hasattr(args, "MODEL.ROI_HEADS.SCORE_THRESH_TEST"):
+        cfg.merge_from_list([("MODEL.ROI_HEADS.SCORE_THRESH_TEST", args.MODEL_ROI_HEADS_SCORE_THRESH_TEST)])
+    if hasattr(args, "SOLVER.IMS_PER_BATCH"):
+        cfg.merge_from_list([("SOLVER.IMS_PER_BATCH", args.SOLVER.IMS_PER_BATCH)])
+    if hasattr(args, "TEST.COMPUTE_LOSSES"):
+        cfg.merge_from_list([("TEST.COMPUTE_LOSSES", args.TEST.COMPUTE_LOSSES)])
+    #cfg.merge_from_list([arg for arg in args if arg.startswith("SOLVER.IMS_PER_BATCH")])
 
-    if (cfg.SOLVER.IMS_PER_BATCH % args.num_gpus != 0):    # Pour être sûr d'être divisible par le nombre de GPU
-        cfg.SOLVER.IMS_PER_BATCH = (cfg.SOLVER.IMS_PER_BATCH // args.num_gpus) * args.num_gpus
-        
+    if args.num_gpus != 0:
+        if (cfg.SOLVER.IMS_PER_BATCH % args.num_gpus != 0):    # Pour être sûr d'être divisible par le nombre de GPU
+            cfg.SOLVER.IMS_PER_BATCH = (cfg.SOLVER.IMS_PER_BATCH // args.num_gpus) * args.num_gpus
+
+    default_setup(cfg, args)
+    
     return cfg
 
 
 def main(args):
     cfg = setup(args)
-
-    logger = logging.getLogger(__name__)
 
     classes = eval(args.classes_dict)
 
@@ -142,27 +153,40 @@ def main(args):
     
     model = CustomValidationTrainer.build_model(cfg)
 
-    mAP_75 = 0
+    AP_75 = 0
     path_to_recommanded_weights = ""
 
     all_weights_paths = sorted(glob.glob(os.path.join(args.weight_dir_path, 'model_*.pth')))
-    metrics = [None] * len(all_weights_paths)
+    nb_weight_files = len(all_weights_paths)
+    metrics_dic = {}
     for (i, weights_path) in zip(range(len(all_weights_paths)), all_weights_paths):
+        logger.info("Iteration {}/{}".format(i+1, nb_weight_files))
+        logger.info("Using weights stored in {}".format(weights_path))
         cfg.MODEL.WEIGHTS = weights_path
         DetectionCheckpointer(model, save_dir=cfg.OUTPUT_DIR).resume_or_load(
             cfg.MODEL.WEIGHTS, resume=True
         )
-        metrics[i] = CustomValidationTrainer.test(cfg, model)
+        metrics = CustomValidationTrainer.test(cfg, model)
         if cfg.TEST.AUG.ENABLED:
-            metrics[i].update(CustomValidationTrainer.test_with_TTA(cfg, model))
+            metrics.update(CustomValidationTrainer.test_with_TTA(cfg, model))
         if comm.is_main_process():
-            verify_results(cfg, metrics[i])
-
+            verify_results(cfg, metrics)
+            
+        #logger.info("Keys in metrics: {}".format(metrics.keys()))
+        #logger.info("Keys in metrics['segm']: {}".format(metrics['segm'].keys()))
         # TODO, faire en sorte d'évaluer en fonction d'une métrique passée en paramètre
-        curr_mAP_75 = metrics[i]["bbox"]["mAP@.75"]
-        if mAP_75 < curr_mAP_75:
-            mAP_75 = max(mAP_75, curr_mAP_75)
+        # Metric can be ['AP', 'AP50', 'AP75', 'APs', 'APm', 'APl', 'AP-Intact_Sharp', 'AP-Broken_Sharp']
+        #curr_AP_75 = metrics['segm']['AP75']
+        curr_AP_75 = metrics[args.valid_type][args.valid_category]
+        if AP_75 < curr_AP_75:
+            AP_75 = curr_AP_75
             path_to_recommanded_weights = weights_path
+
+        metrics_dic.update({i:metrics})
+
+    json_file_name = os.path.join(cfg.OUTPUT_DIR, 'validation_metrics.json')
+    with open(json_file_name, 'w') as json_file:
+        json.dump(metrics_dic, json_file, indent=4)
 
     logger.info("Recommended weights are stored in {}".format(path_to_recommanded_weights))
     
@@ -172,11 +196,13 @@ def main(args):
 if __name__ == "__main__":
     args = default_argument_parser()
 
-    args.add_argument('--weight-dir-path', default="/tmp/TEST//outputs/3D_50_layers/", help="path to the directory containing the full config file created when training, as well as different versions of the model weights")
+    args.add_argument('--weight-dir-path', default="/tmp/TEST/outputs/3D_50_layers/", help="path to the directory containing the full config file created when training, as well as different versions of the model weights")
     args.add_argument('--data-dir', default='/projects/INSA-Image/B01/Data/')
     args.add_argument('--classes-dict',type=str,default="{'Intact_Sharp':0, 'Broken_Sharp':2}")
     #Classes are like "{'Intact_Sharp':0,'Intact_Blurry':1,'Broken_Sharp':2,'Broken_Blurry':3}"
     args.add_argument('--cross-val', default=4, help="will be set by default to the one used during training to avoid runing validation on test data. If wasn't saved when training, will be the one specified here.")
+    args.add_argument('--valid-type', default='segm', help="can be set to 'segm' or to 'bbox' to have metrics based on the segmentations or the bounding boxes. Only valid for coco evauator")
+    args.add_argument('--valid-category', default='AP75', help="can be set to 'AP', 'AP50', 'AP75', 'APs', 'APm', 'APl', 'AP-Intact_Sharp', 'AP-Broken_Sharp'. Only valid for coco evauator")
 
 
     args = args.parse_args()
