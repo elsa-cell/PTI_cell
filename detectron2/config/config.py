@@ -117,9 +117,7 @@ def get_stack_cell_config(cfg) -> CfgNode:
     cfg.DATALOADER.ASPECT_RATIO_GROUPING = False
 
     #Remove all online augmentations
-    cfg.INPUT.HFLIP_TRAIN = False
     cfg.INPUT.CROP.ENABLED = False
-    cfg.INPUT.IS_ROTATE = False
     cfg.TEST.AUG.ENABLED = False
 
 
