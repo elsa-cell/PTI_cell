@@ -57,9 +57,9 @@ def setup(args):
             value = args.opts[i+1]
             opts_dict[key] = value
         if opts_dict.get("MODEL.ROI_HEADS.SCORE_THRESH_TEST"):
-            cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = opts_dict['MODEL.ROI_HEADS.SCORE_THRESH_TEST']
+            cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = float(opts_dict['MODEL.ROI_HEADS.SCORE_THRESH_TEST'])
         if opts_dict.get("SOLVER.IMS_PER_BATCH"):
-            cfg.SOLVER.IMS_PER_BATCH = opts_dict["SOLVER.IMS_PER_BATCH"]
+            cfg.SOLVER.IMS_PER_BATCH = int(opts_dict["SOLVER.IMS_PER_BATCH"])
         if opts_dict.get("TEST.COMPUTE_LOSSES"):
             cfg.TEST.COMPUTE_LOSSES = opts_dict["TEST.COMPUTE_LOSSES"]
         if opts_dict.get("OUTPUT_DIR"):
@@ -78,18 +78,15 @@ def main(args):
 
     classes = eval(args.classes_dict)
 
-    idx_cross_val = 0
-    if args.eval_only:
-        # Pour que le dataset de test soit registered à la place du dataset de validation. Il aura le nom 'val'
-        correspondance_idx = {0:4, 1:0, 2:1, 3:2, 4:3}
-        idx_cross_val = correspondance_idx[args.cross_val]
-    else:
-        idx_cross_val = args.cross_val
-
     # If the dataset is custom, adapt the registering function
     if cfg.DATALOADER.IS_STACK:
-        DatasetCatalog.register('train', lambda: get_dicts(args.data_dir, 'train', idx_cross_val, classes))
-        DatasetCatalog.register('val', lambda: get_dicts(args.data_dir, 'val', idx_cross_val, classes))
+        DatasetCatalog.register('train', lambda: get_dicts(args.data_dir, 'train', args.cross_val, classes))
+        if args.eval_only:
+            DatasetCatalog.register('val', lambda: get_dicts(args.data_dir, 'test', args.cross_val, classes))
+            # Will have the name val in order not to have back propagation
+            # Has the mode test in order to have the test dataset loaded
+        else:
+            DatasetCatalog.register('val', lambda: get_dicts(args.data_dir, 'val', args.cross_val, classes))
         # Set the metadata for the dataset.
         MetadataCatalog.get('train').set(thing_classes=list(classes.keys()))
         MetadataCatalog.get('val').set(thing_classes=list(classes.keys()), evaluator_type="coco")
