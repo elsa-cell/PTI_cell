@@ -47,7 +47,7 @@ def setup(args):
 
     cfg.MODEL.WEIGHTS = ""
 
-    cfg.SOLVER.REFERENCE_WORLD_SIZE = args.num_gpus
+    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.2
 
     if len(args.opts):
         opts_dict = {}
@@ -67,9 +67,6 @@ def setup(args):
 
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
     
-    if args.num_gpus != 0:
-        if (cfg.SOLVER.IMS_PER_BATCH % args.num_gpus != 0):    # Pour être sûr d'être divisible par le nombre de GPU
-            cfg.SOLVER.IMS_PER_BATCH = (cfg.SOLVER.IMS_PER_BATCH // args.num_gpus) * args.num_gpus
 
     default_setup(cfg, args)
     
@@ -81,20 +78,32 @@ def main(args):
 
     classes = eval(args.classes_dict)
 
+    idx_cross_val = 0
+    if args.eval_only:
+        # Pour que le dataset de test soit registered à la place du dataset de validation. Il aura le nom 'val'
+        correspondance_idx = {0:4, 1:0, 2:1, 3:2, 4:3}
+        idx_cross_val = correspondance_idx[args.cross_val]
+    else:
+        idx_cross_val = args.cross_val
+
     # If the dataset is custom, adapt the registering function
     if cfg.DATALOADER.IS_STACK:
-        DatasetCatalog.register('train', lambda: get_dicts(args.data_dir, 'train', args.cross_val, classes))
-        DatasetCatalog.register('val', lambda: get_dicts(args.data_dir, 'val', args.cross_val, classes))
+        DatasetCatalog.register('train', lambda: get_dicts(args.data_dir, 'train', idx_cross_val, classes))
+        DatasetCatalog.register('val', lambda: get_dicts(args.data_dir, 'val', idx_cross_val, classes))
         # Set the metadata for the dataset.
         MetadataCatalog.get('train').set(thing_classes=list(classes.keys()))
         MetadataCatalog.get('val').set(thing_classes=list(classes.keys()), evaluator_type="coco")
     
     model = Trainer.build_model(cfg)
 
-    AP_75 = 0
+    best_AP_75 = 0
     path_to_recommanded_weights = ""
 
-    all_weights_paths = sorted(glob.glob(os.path.join(args.weight_dir_path, 'model_*.pth')))
+    all_weights_paths = ""
+    if args.eval_only:
+        all_weights_paths = [os.path.join(args.weight_dir_path, args.weight_file)]
+    else:
+        all_weights_paths = sorted(glob.glob(os.path.join(args.weight_dir_path, 'model_*.pth')))
     nb_weight_files = len(all_weights_paths)
     metrics_dic = {}
     for (i, weights_path) in zip(range(len(all_weights_paths)), all_weights_paths):
@@ -114,13 +123,16 @@ def main(args):
         # Metric can be ['AP', 'AP50', 'AP75', 'APs', 'APm', 'APl', 'AP-Intact_Sharp', 'AP-Broken_Sharp']
         #curr_AP_75 = metrics['segm']['AP75']
         curr_AP_75 = metrics[args.valid_type][args.valid_category]
-        if AP_75 < curr_AP_75:
-            AP_75 = curr_AP_75
+        if best_AP_75 < curr_AP_75:
+            best_AP_75 = curr_AP_75
             path_to_recommanded_weights = weights_path
 
         metrics_dic.update({i:metrics})
 
-    json_file_name = os.path.join(cfg.OUTPUT_DIR, 'validation_metrics.json')
+    if args.eval_only:
+        json_file_name = os.path.join(cfg.OUTPUT_DIR, 'test_metrics.json')
+    else:
+        json_file_name = os.path.join(cfg.OUTPUT_DIR, 'validation_metrics.json')
     with open(json_file_name, 'w') as json_file:
         json.dump(metrics_dic, json_file, indent=4)
 
@@ -134,13 +146,14 @@ def main(args):
 if __name__ == "__main__":
     args = default_argument_parser()
 
-    args.add_argument('--weight-dir-path', default='/tmp/TEST/outputs/3D_50_layers/', help="path to the directory containing the full config file created when training, as well as different versions of the model weights")
-    args.add_argument('--data-dir', default='/projects/INSA-Image/B01/Data/')
+    args.add_argument('--weight-dir-path',type=str, default='/tmp/TEST/outputs/3D_50_layers/', help="path to the directory containing the full config file created when training, as well as different versions of the model weights")
+    args.add_argument('--data-dir',type=str, default='/projects/INSA-Image/B01/Data/')
     args.add_argument('--classes-dict',type=str,default="{'Intact_Sharp':0, 'Broken_Sharp':2}")
     #Classes are like "{'Intact_Sharp':0,'Intact_Blurry':1,'Broken_Sharp':2,'Broken_Blurry':3}"
-    args.add_argument('--cross-val', default=4, help="will be set by default to the one used during training to avoid runing validation on test data. If wasn't saved when training, will be the one specified here.")
-    args.add_argument('--valid-type', default='segm', help="can be set to 'segm' or to 'bbox' to have metrics based on the segmentations or the bounding boxes. Only valid for coco evauator")
-    args.add_argument('--valid-category', default='AP75', help="can be set to 'AP', 'AP50', 'AP75', 'APs', 'APm', 'APl', 'AP-Intact_Sharp', 'AP-Broken_Sharp'. Only valid for coco evauator")
+    args.add_argument('--cross-val',type=int, default=4, help="will be set by default to the one used during training to avoid runing validation on test data. If wasn't saved when training, will be the one specified here.")
+    args.add_argument('--valid-type',type=str, default='segm', help="can be set to 'segm' or to 'bbox' to have metrics based on the segmentations or the bounding boxes. Only valid for coco evauator")
+    args.add_argument('--valid-category',type=str, default='AP75', help="can be set to 'AP', 'AP50', 'AP75', 'APs', 'APm', 'APl', 'AP-Intact_Sharp', 'AP-Broken_Sharp'. Only valid for coco evauator")
+    args.add_argument('--weight-file',type=str, default='', help="has to be set if test-only")
 
 
     args = args.parse_args()
