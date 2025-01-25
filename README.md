@@ -3,15 +3,8 @@
 
 ## Description
 
-This project implements detectron2 for instance segmentation in the specific case of bacteryocites.  
-In collaboration with the author of [AugP-creatis](https://github.com/AugP-creatis) who is focusing on the [AdelaiDet](https://github.com/aim-uofa/AdelaiDet) framework (that is based on [detectron2](https://github.com/facebookresearch/detectron2) framework)
-
-
-TODO: SECTION IN CONSTRUCTION
-
-TODO : 
-- La description générale 
-- Préciser les new features et dire contribution augP
+This project implements detectron2 for instance segmentation in the specific case of bacteryocites. It proposes a solution to deal with a stack of images captured for different focal planes and aims to segment objects on the image it is the sharpest. In our specific case, *the object* corresponds to a bacteryocite.  
+This work was done in collaboration with the author of [AugP-creatis](https://github.com/AugP-creatis) who is focusing on the [AdelaiDet](https://github.com/aim-uofa/AdelaiDet) framework (that is based on [detectron2](https://github.com/facebookresearch/detectron2) framework)
 
 
 
@@ -89,15 +82,23 @@ If there is a problem with this install, please also refer to [INSTALL.md](INSTA
 ## New features
 
 ### Implemented
-- Possible to load a stack of images
-- Creation of a new meta-architecture for a stack of images : Z direction taken into account
-- Feature separation at the end of the backbone
-- Backbone for stack as 3D images
+- Possible to load a stack of images instead of separate images *(basic implementation by AugP, debug and upgrades by ESA)*
+- Creation of a new meta-architecture for a stack of images : [GeneralizedRCNN_Z](detectron2/modeling/meta_arch/rcnn_z.py), where the Z direction taken into account *(by ESA)*
+- Feature separation at the end of the backbone *(implementation by AugP, integrated by ESA)*
+- Backbone for stack as 3D images *(implementation by AugP, little debug by ESA, integrated in the meta architecture by ESA)*
+- New architecture configurations : [Base configuration](configs/Base-RCNN-Z.yaml), [2D architecture: mask rcnn z](configs/Segmentation-Z/mask_rcnn_z_50.yaml), [3D architecture: mask rcnn 3d](configs/Segmentation-Z/mask_rcnn_3d.yaml) *(by ESA)*
+- Validation using a special criterion from the coco evaluation *(by ESA)*
+
+As this work was performed in collaboration with Augp, most of these features closely follow features implemented on [AdelaiDet-Z](https://github.com/AugP-creatis/AdelaiDet-Z) (tested) and adapted on [detectron2-Z](https://github.com/AugP-creatis/detectron2-Z) (not tested). They were adapted to our special code architecture and features.
+
+
+This list is not exhaustive and only contains the biggest features. Please refer to the [history of commits](https://github.com/elsa-cell/PTI_cell/activity?ref=main) to get the full modifications.
 
 ### In progress
 
-- Computing validation losses during training : see [LossEvalHook](detectron2/engine/hooks.py), inspired by [ortegatron](https://gist.github.com/ortegatron/c0dad15e49c2b74de8bb09a5615d9f6b) (from [this](https://eidos-ai.medium.com/training-on-detectron2-with-a-validation-set-and-plot-loss-on-it-to-avoid-overfitting-6449418fbf4e) medium post) and modified as depicted in the comment of the class.
-- Adding segmentation metrics to the coco detection metrics : see [CustomEvaluator](detectron2/evaluation/custom_evaluation.py)
+- Computing validation losses during training : see [LossEvalHook](detectron2/engine/hooks.py), inspired by [ortegatron](https://gist.github.com/ortegatron/c0dad15e49c2b74de8bb09a5615d9f6b) (from [this](https://eidos-ai.medium.com/training-on-detectron2-with-a-validation-set-and-plot-loss-on-it-to-avoid-overfitting-6449418fbf4e) medium post) and modified as depicted in the comment of the class. *(by ESA)*
+- Adding segmentation metrics to the coco detection metrics : see [CustomEvaluator](detectron2/evaluation/custom_evaluation.py) *(by ESA)*
+- Using [Automatic Mixed Precision](#automatic-mixed-precision) *(implementation by AugP, debug and integration by ESA, still needs debug)*
 
 ### To be implemented
 Evaluation by stack needs to be implemented as evaluating slices independently artificially decreases the performances of the network (when detection is performed on an adjacent sloce for exemple).
@@ -107,8 +108,31 @@ Evaluation by stack needs to be implemented as evaluating slices independently a
 
 The meta-architecture created to deal with stacks is called [GeneralizedRCNN_Z](detectron2/modeling/meta_arch/rcnn_z.py).
 
+The pipeline is different from the normal mask rcnn used to segment picture by picture. Now, the whole stack is processed at the same time. This difference is depicted on the scheme below.
 
-TODO: mettre image du pipeline de traitement par la nouvelle architecture
+
+
+<div align="center">
+  <img src="./meta-architecture.png"/>
+</div>
+
+  
+    
+    
+
+
+For 2d architecture, the Z dimension is stacked inside of the channels, therefore the tensors that will be treated by the network have the following shape : **(N, CxZ, H, W)**, with
+- *N : the number of stacks per batch*
+- *C : the number of channels of the images (BGR => 3 in our case)*
+- *Z : the number of images per stack as they are acquired along different focal planes (11 in our case)*
+- *H : the number of pixels in the height of the image (480 in our case)*
+- *W : the number of pixels in the width of the image (640 in our case)*
+
+For 3d architecture, the Z dimension is considered as third dimension of the image, therefore the tensors that will be treated by the network have the following shape : **(N, C, Z, H, W)**. The 3rd dimension induces the need for 3D convolutions in order to mix information between the features obtained from the different images of the stack. However, pooling will only happen in the width and height dimensions as our problem is anisotropic : the resolution in the width and height dimensions is a lot greater than the one from the Z direction. Reducing the Z dimension which is already small would lead to a loss of information.
+
+The way to build these tensors is depicted in the forward method of the [GeneralizedRCNN_Z](detectron2/modeling/meta_arch/rcnn_z.py) class.
+
+NB: Notice that our images are initially of size 300x400 and are resized at the beginning of the network to 480x640 in order to be a size divisible by the fifth power of two since the backbone reduces by 2 the H and W dimensions 5 times.
 
 ### Newly available networks
 
@@ -118,6 +142,7 @@ TODO: mettre image du pipeline de traitement par la nouvelle architecture
 | [**mask_rcnn_3d**](configs/Segmentation-Z/mask_rcnn_3d.yaml)      | Conv3d                     |  BN3d                | From3dTo2d            | configs/Segmentation-Z/mask_rcnn_3d.yaml |
 
 NB: The number of layers of the resnet of the backbone can be set to different values. As specified in the name of the config, it is by default set to 50.
+
 
 
 ### Trained networks
@@ -332,12 +357,12 @@ The validation script loads the config that was used during training and evaluat
 
 Here is an exemple of a command used for validation purposes :
 ```BibTeX
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 python tools/valid_net.py   \  
+CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 python tools/valid_net.py   \
 --num-gpus 1   \
---dist-url "auto"   /
+--dist-url "auto"   \
 --weight-dir-path /tmp/TEST/outputs/3D_50_layers/   \
 OUTPUT_DIR /tmp/TEST/outputs/3D_50_layers/   \
-SOLVER.IMS_PER_BATCH 1
+SOLVER.IMS_PER_BATCH 1    \
 MODEL.ROI_HEADS.SCORE_THRESH_TEST 0.5
 ```
 
@@ -382,7 +407,7 @@ CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 python tools/valid_net.py    \
 --weight-file  model_final.pth  \
 --eval-only   \
 SOLVER.IMS_PER_BATCH 1 \
-OUTPUT_DIR /tmp/TEST/outputs/test
+OUTPUT_DIR /tmp/TEST/outputs/test    \
 MODEL.ROI_HEADS.SCORE_THRESH_TEST 0.5
 ```
 
