@@ -12,14 +12,13 @@ TODO: SECTION IN CONSTRUCTION
 TODO : 
 - La description générale 
 - Préciser les new features et dire contribution augP
-- la section organisation du data
-- la section des notebooks et les notebooks
-- parler de tensorboard pour visualiser
+
 
 
 ## Summary
 - [Installation](#installation)
 - [New features](#new-features)
+- [New networks](#new-networks)
 - [Usage](#usage)
     - [Data](#data)
     - [Notebooks](#notebooks)
@@ -104,13 +103,14 @@ If there is a problem with this install, please also refer to [INSTALL.md](INSTA
 Evaluation by stack needs to be implemented as evaluating slices independently artificially decreases the performances of the network (when detection is performed on an adjacent sloce for exemple).
 
 
-### Newly available networks
+## New networks
 
-The meta-architecture created to deal with stacks is called GeneralizedRCNN_Z.
+The meta-architecture created to deal with stacks is called [GeneralizedRCNN_Z](detectron2/modeling/meta_arch/rcnn_z.py).
 
 
 TODO: mettre image du pipeline de traitement par la nouvelle architecture
 
+### Newly available networks
 
 | **Name**              | **Main convolution type**  | **Batch norm (BN)**  | **Separator**         | **Config file**   |
 |-----------------------|----------------------------|----------------------|-----------------------|-------------------|
@@ -119,34 +119,115 @@ TODO: mettre image du pipeline de traitement par la nouvelle architecture
 
 NB: The number of layers of the resnet of the backbone can be set to different values. As specified in the name of the config, it is by default set to 50.
 
+
+### Trained networks
+
+
+| **Name**              | **Config file**  | **Resnet layers**  | **Recommanded weights** | 
+|-----------------------|------------------|--------------------|-------------------------|
+| **Z_18_layers**       |  configs/Segmentation-Z/mask_rcnn_z_50.yaml                    |        18          |      model_0000499.pth       |
+| **Z_50_layers**       |  configs/Segmentation-Z/mask_rcnn_z_50.yaml                    |        50          |      model_0009999.pth       |
+| **3D_18_layers**      |  configs/Segmentation-Z/mask_rcnn_3d.yaml                    |          18        |      model_0000499.pth       |
+| **3D_50_layers**      |  configs/Segmentation-Z/mask_rcnn_3d.yaml                    |          50        |      model_0000499.pth       |
+
+Please note that each model is stored in its own directory.
+
+Our training paramters were as follows
+
+| **Name**              | **Number GPU**  | **Images per batch**  | **Number of iterations** | 
+|-----------------------|------------------|--------------------|-------------------------|
+| **Z_18_layers**       |         2             |        22          |      10 000      | 
+| **Z_50_layers**       |         1             |         4         |      20 000       |
+| **3D_18_layers**      |         3             |          9        |      10 000       |
+| **3D_50_layers**      |         3             |          3        |      30 000       |
+
+The GPU used for training were V100 with 16GB of VRAM.
+Base learning rate was 0.001.
+
 ## Usage
 
 ### Data
 
+For more informations on the dataset, data augmentation, cross validation, data organisation, please refer to the [training notebook](main/train_custom_z_network.ipynb)
 
-TODO : SECTION A FAIRE
 
+Depending on your images and annotations properties, you will be interested in overwriting the following parameters:
+
+
+| **Option**                        | **Default value**     | **Overwritten to**   |
+|-----------------------------------|-----------------------|---------------|
+| **INPUT.FORMAT**                  | "BGR"                 |       "BGR"        |
+| **INPUT.MIN_SIZE_TRAIN**          |  (800,)               | (480,) |
+| **INPUT.MIN_SIZE_TEST**           | 800                   | 480 |
+| **TEST.AUG.MIN_SIZES**            | (800,)                | (480,) |
+| **INPUT.MASK_FORMAT**             | "polygon"             | "polygon" |
+| **DATALOADER.IS_STACK**           | False                 | True |
+| **INPUT.STACK_SIZE**              | 1                     | 11 |
+| **INPUT.EXTENSION**               | ".png"                | ".png" |
+| **INPUT.SLICE_SEPARATOR**         | "F"                   | "F" |
+
+
+The overwrite can be customized in the function [get_stack_cell_config(cfg)](detectron2/config/config.py).
+
+
+**INPUT.MASK_FORMAT** can also be "bitmask"  
+**INPUT.SLICE_SEPARATOR** refers to the string that is right before the indice of the image in the stack in the filename.
+
+
+
+
+#### Data augmentation
+Data augmentation can be performed prior to or during the training process. Note that data augmentation during training was not tested.
+In our case, up to 35 transforms were applied to the dataset before the training process.
+
+
+#### ORGANISATION
+The dataset is divided into 3 sets: 
+- 60% => Training
+- 20% => Validation
+- 20% => Test  
+  
+Data must be stored in the following directory structure:
+
+└── Cross-val  
+&emsp;&emsp;&emsp;   └── Xval0  
+&emsp;&emsp;&emsp; &emsp;&emsp;   ├── images  
+&emsp;&emsp;&emsp; &emsp;&emsp;   └── labels  
+
+With 5 Xval folders, adapting the index to correspond to the proper fold: Xval0, Xval1, Xval2, Xval3, Xval4
+
+#### Cross validation
+As the name suggests, this separation is designed to enable cross-validation. For ecological and training time reasons, we have not taken advantage of this possibility, but it is important to note that it can be easily implemented if required.  
+An index indicates which parts of the dataset will be associated with which dataset (training, validation or test). To perform cross-validation, you'll need to carry out training for indices ranging from 0 to 4.
 
 ### Notebooks
 The notebooks are all inside the directory main in the repository.
 
 #### First segmentation
-The notebook simple_inference_resnet_on_one_img.ipynb takes you through the basic segmentation of a particular image using the default mask rcnn, with a 50 layers resnet, available .
+The notebook [simple_inference_resnet_on_one_img.ipynb](main/simple_inference_resnet_on_one_img.ipynb) takes you through the basic segmentation of a particular image using the default mask rcnn, with a 50 layers resnet, available .
 We see that it was not trained to detect bacteryocites. 
 
 
+#### Visualisation of the dataset
+The notebook [registering_displaying_cell_dataset.ipynb](main/registering_displaying_cell_dataset.ipynb) allows the visualisation of N random samples of the dataset, with the annotations on the image. It is very usefull to understand the specificity of the dataset and the variation between different acquisitions in size, shape, sharpness...
 
 
-TODO : SECTION IN CONSTRUCTION
+#### Training, validating, evaluating and visualising inference
+The notebook [train_custom_z_network.ipynb](main/train_custom_z_network.ipynb) takes you through the training of models that are specific for stacks, then the validation of the best weights obtained during training, then the evaluation of the model. It is then possible to visualize segmentation obtained with the trained model.
+
+Before jumping right in, note that 
+- It is recommanded to run training with the dedicated python script (see section [Training](#training) below), otherwise multi GPU training won't be supported. 
+- It is also recommended to run validation with the dedicated python script (see section [Validation](#validation) below), as the output is very large and the script directly gives the file of the recommanded weights. 
+- If the training occured with validation (done either with the jupyter notebook or the dedicated python script), it is possible to visualise the training and validation curves with the *VISUALISATION DES COURBES D'ENTRAINEMENT* cell in the [notebook](main/train_custom_z_network.ipynb)
+- It is recommanded to have a look at all the different explanations inside the notebook, as well as the parameters choice for training (available [here](#tunable-parameters)) and for validation (available [here](#interesting-parameters))
 
 
+In the end, this notebook is mostly useful for pedagogic purposes, as it is recommanded to run training, validation and evaluation using the python scripts, the use of which is detailed in the following sections. If trainig was done with the dedicated script as recommanded, to visualize results of inference, use the next and last [jupyter notebook](#visualising-inference) (it avoids confusion on which configuration is used). If trainig was done with the jupyter notebook, visualisation is possible at the end of the notebook.
 
 
+#### Visualising inference
 
-
-
-
-
+The notebook [visualise_inference_z_network.ipynb](main/visualise_inference_z_network.ipynb) allows visualisation of N stacks. Note that it loads the config from a file that is created when training with the python script, and is not available when training was performed with jupyter. Indeed the previous notebook has a pedagogic role and won't really be used in practice, other than for understanding purposes. 
 
 
 ### Training
@@ -216,6 +297,22 @@ Another possibility is to reduce the number of input per batch. It is important 
 Automatic mixed precision was successfully implemented in the [AugP-creatis/AdelaiDet-Z repository](https://github.com/AugP-creatis/AdelaiDet-Z) we collaborate with. However, we have an error when adapting it to the detectron2 framework used here. This feature still needs debug.  
   
 Automatic mixed precision : automatically casts operations to float16 instead of float32 while maintaining maximal accuracy. It is typically used for model weights and gradients. The losses are rescaled in order not prevent numerical underflow. This method makes the **training faster** and takes **less memory**.
+
+
+#### Visualisation of curves
+
+It is possible to visualize the different training curves in tensorboard. If validation was set during training, it will aso be possible to visualise the validation metrics.
+
+The path specified with the **--log-dir** option must be changed accordingly to the output directory set when training the model.
+
+```BibTeX
+# Look at training curves in tensorboard:
+%load_ext tensorboard
+%tensorboard --logdir "/tmp/TEST/outputs/3D_50_layers"
+```
+
+This is present in the notebook [train_custom_z_network.ipynb](main/train_custom_z_network.ipynb), in the *Visualisation des courbes d'entrainement* cell.
+It is also present in the [visualise_inference_z_network.ipynb](main/visualise_inference_z_network.ipynb) to avoid searching for the cell in the previous notebook that is much longer.
 
 
 
